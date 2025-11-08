@@ -13,6 +13,7 @@ class CameraConnection:
     def __init__(self):
         self.camera = None
         self.is_connected = False
+        self.camera_name = "Unknown"
 
     def connect(self) -> bool:
         """카메라 연결"""
@@ -22,7 +23,8 @@ class CameraConnection:
             self.is_connected = True
 
             abilities = self.camera.get_abilities()
-            print(f"✅ 카메라 연결됨: {abilities.model}")
+            self.camera_name = abilities.model
+            print(f"✅ 카메라 연결됨: {self.camera_name}")
             return True
 
         except gp.GPhoto2Error as e:
