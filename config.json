@@ -1,0 +1,20 @@
+{
+  "camera": {
+    "model": "Canon EOS 100D",
+    "check_interval_seconds": 5
+  },
+  "paths": {
+    "original_folder": "downloaded_photos",
+    "overlay_image": "overlay.png",
+    "output_folder": "processed_photos"
+  },
+  "processing": {
+    "overlay_mode": "fullscreen",
+    "preserve_original": true,
+    "auto_process": true
+  },
+  "monitoring": {
+    "enabled": true,
+    "processed_files_db": "processed_files.json"
+  }
+}
