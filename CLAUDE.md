@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-라즈베리파이 + ESP32 기반 Home Assistant 연동 멀티미디어 시스템
+라즈베리파이 + ESP32 + macOS 기반 Home Assistant 연동 멀티미디어 시스템
 - **old_tv**: MQTT 제어 영상 재생 (HDMI)
 - **mp3_morse**: MP3 재생 (3.5mm) + 오실로스코프 패턴 동기화
+- **macos_mp3**: macOS MQTT MP3 플레이어 (afplay)
+- **씬 제어**: IKEA RODRET 리모컨으로 씬 순차 진행
 
 ## Device Access
 
@@ -26,11 +28,17 @@ sshpass -p 'qwerqwer' ssh mystery@192.168.0.25
 │  192.168.0.25   │                 │  192.168.0.28   │  /dev/ttyUSB0  │  Morse Code │
 │                 │  old_tv/*       │                 │   Serial CMD   │  DAC25/26   │
 │  Mosquitto      │  mp3_morse/*    │  ┌───────────┐  │                └─────────────┘
-└─────────────────┘                 │  │ VLC(HDMI) │  │
-                                    │  │ mpg123    │  │
-                                    │  │ (3.5mm)   │  │
-                                    │  └───────────┘  │
-                                    └─────────────────┘
+│                 │  scene/*        │  │ VLC(HDMI) │  │
+│  IKEA RODRET    │                 │  │ mpg123    │  │
+│  (ZHA 리모컨)    │  macos_mp3/*    │  │ (3.5mm)   │  │
+└────────┬────────┘                 │  └───────────┘  │
+         │                          └─────────────────┘
+         │ MQTT
+         ▼
+┌─────────────────┐
+│     macOS       │
+│  afplay (MP3)   │
+└─────────────────┘
 ```
 
 ## Network
@@ -51,6 +59,10 @@ sshpass -p 'qwerqwer' ssh mystery@192.168.0.25
 | `mp3_morse/command` | HA → RPi | play / stop |
 | `mp3_morse/state` | RPi → HA | playing / stopped |
 | `mp3_morse/track` | HA → RPi | MP3 파일명 |
+| `macos_mp3/command` | HA → macOS | stop |
+| `macos_mp3/track` | HA → macOS | MP3 파일명 |
+| `macos_mp3/state` | macOS → HA | playing / stopped |
+| `scene/esp32_pattern` | HA → RPi | 0-3 / STOP |
 
 ## ESP32 Serial Protocol
 
@@ -72,6 +84,8 @@ sshpass -p 'qwerqwer' ssh mystery@192.168.0.25
 |------|------|
 | `morse.ino` | ESP32 오실로스코프 펌웨어 |
 | `secrets.h` | WiFi/MQTT 인증정보 |
+| `macos_mqtt_mp3_player.py` | macOS MQTT MP3 플레이어 |
+| `mqtt_mp3_morse_player.py` | RPi MP3+Morse 플레이어 (백업) |
 
 ### Raspberry Pi
 | 경로 | 설명 |
@@ -124,3 +138,44 @@ screen /dev/ttyUSB0 115200
 - **ESP32**: CP2102N USB-UART, DAC GPIO 25/26
 - **Display**: HDMI 1280x720 (VLC)
 - **Audio**: 3.5mm (mpg123)
+- **Remote**: IKEA RODRET (ZHA, device_id: 91afeecd96c2793ecdfebd81c5e5bc11)
+
+## Scene Control (씬 순차 제어)
+
+IKEA RODRET 리모컨으로 씬 순차 진행 (끄기 버튼) / 긴급 종료 (켜기 버튼)
+
+| 씬 | 영상 | RPi MP3 | macOS MP3 | ESP32 | switch.doll |
+|----|------|---------|-----------|-------|-------------|
+| 0 | 정지 | 정지 | 정지 | STOP | OFF |
+| 1 | - | morse.mp3 | - | 패턴 동기화 | - |
+| 2 | 1.mp4 | - | - | 패턴0 | - |
+| 3 | 2.mp4 | 정지 | 1.mp3 | 패턴1 | - |
+| 4 | 3.mp4 | - | 2.mp3 | 패턴2 | ON |
+| 5 | 정지 | - | 정지 | STOP | OFF |
+
+**버튼 동작:**
+- 끄기(off): 0→1→2→3→4→5→0 순차 진행
+- 켜기(on): 씬0으로 즉시 리셋 (긴급 종료)
+
+### Home Assistant 설정
+
+```yaml
+# input_number 헬퍼 (UI에서 생성 또는 configuration.yaml)
+input_number:
+  scene_state:
+    name: "현재 씬 번호"
+    min: 0
+    max: 5
+    step: 1
+    initial: 0
+
+# 자동화 파일: /homeassistant/automations.yaml
+```
+
+### Systemd Services (Raspberry Pi)
+
+| 서비스 | 설명 |
+|--------|------|
+| `mqtt-video` | 영상 플레이어 |
+| `mqtt-mp3-morse` | MP3+Morse 플레이어 |
+| `volume-max` | 부팅 시 볼륨 100% 설정 |
