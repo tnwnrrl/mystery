@@ -1,0 +1,11 @@
+{
+  "morse.mp3": {
+    "duration": 7.65,
+    "patterns": [
+      {"time": 0, "pattern": 3},
+      {"time": 1.25, "pattern": 1},
+      {"time": 3.105, "pattern": 2},
+      {"time": 5.881, "pattern": 0}
+    ]
+  }
+}
