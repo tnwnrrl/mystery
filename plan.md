@@ -4,6 +4,11 @@
 ## Active Tasks
 (없음)
 
+## 최근 수정 (2026-01-08)
+- [x] ESP32 시리얼 포트 수정: `/dev/ttyUSB1` → `/dev/ttyUSB0`
+  - mqtt_mp3_morse_player.py 수정 완료
+  - 서비스 재시작 완료
+
 ## 다음 단계
 - [ ] ESP32에 morse.ino 펌웨어 업로드
 - [ ] 테스트 MP3 파일 ~/mp3/에 업로드
