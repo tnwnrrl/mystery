@@ -12,10 +12,10 @@
   - systemd에 `PYTHONUNBUFFERED=1` 추가 (로그 즉시 출력)
 
 ## 다음 단계
-- [ ] ESP32에 morse.ino 펌웨어 업로드
-- [ ] 테스트 MP3 파일 ~/mp3/에 업로드
-- [ ] patterns.json 실제 트랙에 맞게 수정
-- [ ] Home Assistant에 mp3_morse 엔티티 추가
+- [x] ESP32에 morse.ino 펌웨어 업로드 → 이미 동작 중
+- [x] 테스트 MP3 파일 ~/mp3/에 업로드 → morse.mp3 존재
+- [x] patterns.json 실제 트랙에 맞게 수정 → 4개 패턴 설정됨
+- [x] Home Assistant에 mp3_morse 엔티티 추가 → automations.yaml에 설정됨
 
 ## Completed Archive
 - [x] 라즈베리파이 네트워크 재구성 (2026-01-07)
