@@ -77,6 +77,8 @@ sshpass -p 'qwerqwer' ssh mystery@192.168.0.25
 
 **동작**: 기본 대기(화면 비움) → PATTERN 명령 시 해당 기호 출력 → STOP 명령 시 대기
 
+**자동 포트 감지**: mqtt_mp3_morse_player.py가 `/dev/ttyUSB*`, `/dev/ttyACM*` 스캔 후 ESP32 자동 연결. 연결 오류 시 자동 재연결
+
 ## Files
 
 ### Local (이 저장소)
@@ -179,3 +181,25 @@ input_number:
 | `mqtt-video` | 영상 플레이어 |
 | `mqtt-mp3-morse` | MP3+Morse 플레이어 |
 | `volume-max` | 부팅 시 볼륨 100% 설정 |
+
+## Troubleshooting
+
+### ESP32 응답 없음
+```bash
+# 시리얼 포트 확인
+ls -la /dev/ttyUSB*
+
+# 직접 테스트
+python3 -c "
+import serial
+ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=2)
+ser.write(b'STATUS\n')
+import time; time.sleep(0.3)
+print(ser.readline())
+ser.close()
+"
+```
+
+### RPi 인터넷 연결
+- eth0: 내부 네트워크 (192.168.0.x) - SSH 접속용
+- wlan0: iPhone 핫스팟 연결 필요 (172.20.10.x) - 패키지 설치용
