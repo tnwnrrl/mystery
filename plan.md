@@ -5,9 +5,11 @@
 (없음)
 
 ## 최근 수정 (2026-01-08)
-- [x] ESP32 시리얼 포트 수정: `/dev/ttyUSB1` → `/dev/ttyUSB0`
-  - mqtt_mp3_morse_player.py 수정 완료
-  - 서비스 재시작 완료
+- [x] ESP32 시리얼 포트 자동 감지 기능 추가
+  - `find_esp32_port()`: USB 포트 스캔 후 ESP32 자동 발견
+  - `reconnect_serial()`: 연결 오류 시 자동 재연결
+  - 스캔 범위: `/dev/ttyUSB*`, `/dev/ttyACM*`
+  - systemd에 `PYTHONUNBUFFERED=1` 추가 (로그 즉시 출력)
 
 ## 다음 단계
 - [ ] ESP32에 morse.ino 펌웨어 업로드
