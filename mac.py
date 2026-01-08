@@ -83,22 +83,28 @@ def stop_mp3():
     global player_process, current_track, stop_requested
 
     stop_requested = True
+
+    # 1. 프로세스 그룹 종료 시도
     if player_process:
         try:
-            # 프로세스 그룹 전체 종료 (셸 루프 포함)
             os.killpg(os.getpgid(player_process.pid), signal.SIGTERM)
             player_process.wait(timeout=2)
         except:
             try:
                 os.killpg(os.getpgid(player_process.pid), signal.SIGKILL)
             except:
-                try:
-                    player_process.kill()
-                except:
-                    pass
+                pass
         player_process = None
-        current_track = ""
-        print("재생 중지")
+
+    # 2. 남은 afplay 프로세스 강제 종료
+    try:
+        subprocess.run(["pkill", "-9", "afplay"], capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "while true.*afplay"], capture_output=True)
+    except:
+        pass
+
+    current_track = ""
+    print("재생 중지")
 
 def monitor_playback():
     """단일 재생 완료 시 상태 업데이트"""

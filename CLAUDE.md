@@ -18,6 +18,9 @@ sshpass -p '1' ssh pi@192.168.0.28
 
 # Home Assistant SSH
 sshpass -p 'qwerqwer' ssh mystery@192.168.0.25
+
+# Mac mini SSH
+sshpass -p '1111' ssh kim@192.168.0.24
 ```
 
 ## Architecture
@@ -48,6 +51,7 @@ sshpass -p 'qwerqwer' ssh mystery@192.168.0.25
 | Raspberry Pi | eth0 | 192.168.0.28 | SSH 접속 |
 | Raspberry Pi | wlan0 | 172.20.10.x | 인터넷 (iPhone) |
 | Home Assistant | - | 192.168.0.25 | MQTT 브로커 |
+| Mac mini | - | 192.168.0.24 | macOS MP3 플레이어 |
 
 ## MQTT Topics
 
