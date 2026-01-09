@@ -23,9 +23,6 @@ print('✅ Connected' if camera.connect() else '❌ Failed')
 camera.disconnect()
 "
 
-# AI 변환 테스트 (나노바나나)
-python3 test_nanobanana.py
-
 # macOS 빌드
 ./build_mac.sh
 
