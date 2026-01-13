@@ -96,11 +96,35 @@ class CameraConnection:
             self.is_connected = False
             print("📴 카메라 연결 해제됨")
 
+    def refresh_connection(self) -> bool:
+        """캐시 무효화를 위한 빠른 재연결 (프로세스 kill 없이)"""
+        if not self.camera:
+            return False
+        
+        try:
+            # exit() 후 init()으로 캐시 무효화
+            self.camera.exit()
+            self.camera.init()
+            self.is_connected = True
+            return True
+        except gp.GPhoto2Error as e:
+            print(f"⚠️ 새로고침 실패: {e}")
+            self.is_connected = False
+            return False
+
     def get_all_files(self) -> List[Dict[str, any]]:
-        """카메라 내 모든 JPG 파일 목록 조회"""
+        """카메라 내 모든 JPG 파일 목록 조회 (매번 새로고침)"""
         if not self.is_connected:
             print("⚠️ 카메라가 연결되지 않았습니다.")
             return []
+
+        # 스캔 전 연결 새로고침으로 캐시 무효화
+        if not self.refresh_connection():
+            print("⚠️ 연결 새로고침 실패, 재연결 시도...")
+            # 새로고침 실패 시 전체 재연결 시도
+            if not self.connect():
+                print("❌ 재연결 실패")
+                return []
 
         files_list = []
 
