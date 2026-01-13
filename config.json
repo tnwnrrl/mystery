@@ -8,10 +8,19 @@
     "overlay_image": "/Users/jjh/Downloads/135cadf5-c0d3-4dd5-9067-70c25d5624ba.png",
     "output_folder": "processed_photos"
   },
+  "ai": {
+    "api_key": "AIzaSyDD3qRtOgSEVEyMy49hEEXQzKIas46Yyy4",
+    "model": "gemini-2.0-flash-exp",
+    "prompt": "Transform this photo into an Asian-style horror ghost photo:\n1. Add glowing red demon eyes ONLY to the teddy bear - do NOT add red eyes to people or other objects\n2. Add faint, translucent Korean/Japanese style vengeful spirits (wonhon/yurei) in the dark background - long black hair, white clothing, blurry and ghostly appearance\n3. The ghost figures can be very faint and hazy, barely visible\n4. DO NOT modify the original people - keep their faces, clothes, and poses exactly the same\n5. Create an eerie East Asian horror movie atmosphere",
+    "timeout_seconds": 120
+  },
   "processing": {
+    "mode": "hybrid",
     "overlay_mode": "fullscreen",
     "preserve_original": true,
-    "auto_process": true
+    "auto_process": true,
+    "sequential_naming": false,
+    "naming_prefix": "ghost_"
   },
   "monitoring": {
     "enabled": true,
