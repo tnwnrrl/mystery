@@ -1,0 +1,201 @@
+# Home Assistant 씬 순차 제어 자동화
+# 위치: /homeassistant/automations.yaml (기존 자동화에 추가)
+#
+# 필수 설정:
+# 1. input_number.scene_state 헬퍼 생성 (min: 0, max: 3, step: 1)
+# 2. RODRET 디바이스 ID 확인 (device_id: 91afeecd96c2793ecdfebd81c5e5bc11)
+#
+# 씬 구성:
+# | 씬 | 영상 | RPi MP3 | macOS MP3 | ESP32 | switch.doll |
+# |----|------|---------|-----------|-------|-------------|
+# | 0 | 정지 | 정지 | 정지 | STOP | OFF |
+# | 1 | - | morse.mp3 | - | 패턴 동기화 | - |
+# | 2 | 1.mp4 | 정지 | 1.mp3 | STOP | - |
+# | 3 | 2.mp4 (단일) | - | 2.mp3 (단일) | - | ON → 종료 시 OFF |
+
+# ============================================================
+# RODRET 끄기 버튼: 씬 순차 진행 (0→1→2→3, 3에서 멈춤)
+# ============================================================
+- id: 'scene_advance_on_rodret_off'
+  alias: '씬 순차 진행 (RODRET 끄기)'
+  description: 'RODRET 끄기 버튼으로 씬 0→1→2→3 순차 진행 (3에서 멈춤)'
+  trigger:
+    - platform: device
+      domain: zha
+      device_id: 91afeecd96c2793ecdfebd81c5e5bc11
+      type: remote_button_short_press
+      subtype: turn_off
+  condition:
+    # 씬3이 아닐 때만 진행
+    - condition: numeric_state
+      entity_id: input_number.scene_state
+      below: 3
+  action:
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.scene_state
+      data:
+        value: >
+          {{ states('input_number.scene_state') | int + 1 }}
+
+# ============================================================
+# RODRET 켜기 버튼: 긴급 종료 (씬 0으로 리셋)
+# ============================================================
+- id: 'scene_reset_on_rodret_on'
+  alias: '씬 리셋 (RODRET 켜기)'
+  description: 'RODRET 켜기 버튼으로 씬 0으로 긴급 리셋'
+  trigger:
+    - platform: device
+      domain: zha
+      device_id: 91afeecd96c2793ecdfebd81c5e5bc11
+      type: remote_button_short_press
+      subtype: turn_on
+  action:
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.scene_state
+      data:
+        value: 0
+
+# ============================================================
+# 씬 0: 초기화 (모든 장치 정지)
+# ============================================================
+- id: 'scene_0_init'
+  alias: '씬 0 - 초기화'
+  description: '모든 장치 정지, switch.doll OFF'
+  trigger:
+    - platform: state
+      entity_id: input_number.scene_state
+      to: '0.0'
+  action:
+    # 영상 정지
+    - service: mqtt.publish
+      data:
+        topic: old_tv/command
+        payload: stop
+    # RPi MP3 정지
+    - service: mqtt.publish
+      data:
+        topic: mp3_morse/command
+        payload: stop
+    # macOS MP3 정지
+    - service: mqtt.publish
+      data:
+        topic: macos_mp3/command
+        payload: stop
+    # ESP32 정지
+    - service: mqtt.publish
+      data:
+        topic: scene/esp32_pattern
+        payload: STOP
+    # 인형 스위치 OFF
+    - service: switch.turn_off
+      target:
+        entity_id: switch.doll
+    # monkey 스위치 OFF
+    - service: switch.turn_off
+      target:
+        entity_id: switch.monkey
+
+# ============================================================
+# 씬 1: morse.mp3 재생 + ESP32 패턴 동기화
+# ============================================================
+- id: 'scene_1_morse'
+  alias: '씬 1 - 모스 MP3'
+  description: 'morse.mp3 재생, ESP32 패턴 동기화 (patterns.json 기반)'
+  trigger:
+    - platform: state
+      entity_id: input_number.scene_state
+      to: '1.0'
+  action:
+    # morse.mp3 재생 (ESP32 패턴 자동 동기화)
+    - service: mqtt.publish
+      data:
+        topic: mp3_morse/track
+        payload: morse.mp3
+
+# ============================================================
+# 씬 2: 1.mp4 영상 + RPi MP3 정지 + macOS 1.mp3 + ESP32 STOP + monkey ON
+# ============================================================
+- id: 'scene_2_video1'
+  alias: '씬 2 - 영상1 + macOS MP3 + monkey'
+  description: '1.mp4 재생, RPi MP3 정지, macOS 1.mp3, ESP32 STOP, monkey ON'
+  trigger:
+    - platform: state
+      entity_id: input_number.scene_state
+      to: '2.0'
+  action:
+    # RPi MP3 정지
+    - service: mqtt.publish
+      data:
+        topic: mp3_morse/command
+        payload: stop
+    # ESP32 STOP
+    - service: mqtt.publish
+      data:
+        topic: scene/esp32_pattern
+        payload: STOP
+    # 영상 재생 (반복)
+    - service: mqtt.publish
+      data:
+        topic: old_tv/video
+        payload: 1.mp4
+    # macOS MP3 재생 (반복)
+    - service: mqtt.publish
+      data:
+        topic: macos_mp3/track
+        payload: 1.mp3
+    # monkey 스위치 ON
+    - service: switch.turn_on
+      target:
+        entity_id: switch.monkey
+
+# ============================================================
+# 씬 3: 2.mp4 영상 (단일) + macOS 2.mp3 (단일) + 인형 ON
+# ============================================================
+- id: 'scene_3_video2'
+  alias: '씬 3 - 영상2 + 인형'
+  description: '2.mp4 단일 재생, macOS 2.mp3 단일 재생, 인형 ON'
+  trigger:
+    - platform: state
+      entity_id: input_number.scene_state
+      to: '3.0'
+  action:
+    # 인형 스위치 ON
+    - service: switch.turn_on
+      target:
+        entity_id: switch.doll
+    # 영상 단일 재생
+    - service: mqtt.publish
+      data:
+        topic: old_tv/video_once
+        payload: 2.mp4
+    # macOS MP3 단일 재생
+    - service: mqtt.publish
+      data:
+        topic: macos_mp3/track_once
+        payload: 2.mp3
+
+# ============================================================
+# 영상 종료 시 인형 OFF + monkey OFF (씬3 전용)
+# ============================================================
+- id: 'doll_off_on_video_finished'
+  alias: '영상 종료 시 인형/monkey OFF'
+  description: '씬3에서 2.mp4 재생 완료 시 switch.doll, switch.monkey OFF'
+  trigger:
+    - platform: mqtt
+      topic: old_tv/state
+      payload: 'finished'
+  condition:
+    # 씬3일 때만 동작
+    - condition: numeric_state
+      entity_id: input_number.scene_state
+      above: 2.9
+      below: 3.1
+  action:
+    - service: switch.turn_off
+      target:
+        entity_id: switch.doll
+    - service: switch.turn_off
+      target:
+        entity_id: switch.monkey

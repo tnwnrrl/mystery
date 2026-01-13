@@ -1,8 +1,42 @@
 # Project Roadmap
-> Created: 2026-01-07 | Last Updated: 2026-01-07
+> Created: 2026-01-07 | Last Updated: 2026-01-12
 
 ## Active Tasks
-(없음)
+
+### MP3 파일 확인 (서버 연결 후 수행)
+
+```bash
+# Mac mini에서 MP3 파일 확인
+sshpass -p '1111' ssh kim@192.168.0.24 "ls -la ~/Music/ha_mp3/"
+
+# Mac mini에서 모든 MP3 파일 검색
+sshpass -p '1111' ssh kim@192.168.0.24 "find ~ -name '*.mp3' 2>/dev/null"
+```
+
+**필요한 MP3 파일:**
+| 파일 | 위치 | 용도 | 상태 |
+|------|------|------|------|
+| morse.mp3 | RPi ~/mp3/ | 씬1 - 패턴 동기화 | ✅ 확인됨 |
+| 1.mp3 | Mac mini ~/Music/ha_mp3/ | 씬2 - 반복 재생 | ❓ 확인 필요 |
+| 2.mp3 | Mac mini ~/Music/ha_mp3/ | 씬3 - 단일 재생 | ❓ 확인 필요 |
+
+### 배포 작업 (서버 연결 후 수행)
+
+1. **RPi 영상 플레이어 배포**
+```bash
+scp mqtt_video_player.py pi@192.168.0.28:~/
+sshpass -p '1' ssh pi@192.168.0.28 "sudo systemctl restart mqtt-video"
+```
+
+2. **Mac mini 플레이어 배포**
+```bash
+scp mac.py kim@192.168.0.24:~/
+sshpass -p '1111' ssh kim@192.168.0.24 "nohup python3 ~/mac.py > ~/mac.log 2>&1 &"
+```
+
+3. **HA 설정**
+   - input_number.scene_state max를 3으로 변경
+   - ha_automations.yaml 자동화 추가
 
 ## 최근 수정 (2026-01-08)
 - [x] ESP32 시리얼 포트 자동 감지 기능 추가

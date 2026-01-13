@@ -58,13 +58,15 @@ sshpass -p '1111' ssh kim@192.168.0.24
 | 토픽 | 방향 | 값 |
 |------|------|-----|
 | `old_tv/command` | HA → RPi | play / stop |
-| `old_tv/state` | RPi → HA | playing / stopped |
-| `old_tv/video` | HA → RPi | 파일명 |
+| `old_tv/state` | RPi → HA | playing / stopped / finished |
+| `old_tv/video` | HA → RPi | 파일명 (반복 재생) |
+| `old_tv/video_once` | HA → RPi | 파일명 (단일 재생, 종료 시 finished) |
 | `mp3_morse/command` | HA → RPi | play / stop |
 | `mp3_morse/state` | RPi → HA | playing / stopped |
 | `mp3_morse/track` | HA → RPi | MP3 파일명 |
 | `macos_mp3/command` | HA → macOS | stop |
-| `macos_mp3/track` | HA → macOS | MP3 파일명 |
+| `macos_mp3/track` | HA → macOS | MP3 파일명 (반복 재생) |
+| `macos_mp3/track_once` | HA → macOS | MP3 파일명 (단일 재생) |
 | `macos_mp3/state` | macOS → HA | playing / stopped |
 | `scene/esp32_pattern` | HA → RPi | 0-3 / STOP |
 
@@ -88,10 +90,13 @@ sshpass -p '1111' ssh kim@192.168.0.24
 ### Local (이 저장소)
 | 파일 | 설명 |
 |------|------|
-| `morse.ino` | ESP32 오실로스코프 펌웨어 |
-| `secrets.h` | WiFi/MQTT 인증정보 |
-| `macos_mqtt_mp3_player.py` | macOS MQTT MP3 플레이어 |
-| `mqtt_mp3_morse_player.py` | RPi MP3+Morse 플레이어 (백업) |
+| `morse/morse.ino` | ESP32 오실로스코프 펌웨어 |
+| `morse/secrets.h` | WiFi/MQTT 인증정보 |
+| `mac.py` | macOS MQTT MP3 플레이어 (반복/단일 재생 지원) |
+| `mqtt_video_player.py` | RPi 영상 플레이어 (반복/단일 재생 + finished 이벤트) |
+| `mqtt_mp3_morse_player.py` | RPi MP3+Morse 플레이어 |
+| `ha_automations.yaml` | HA 씬 제어 자동화 (복사용) |
+| `patterns.json` | 트랙별 패턴 매핑 |
 
 ### Raspberry Pi
 | 경로 | 설명 |
@@ -154,28 +159,52 @@ IKEA RODRET 리모컨으로 씬 순차 진행 (끄기 버튼) / 긴급 종료 (�
 |----|------|---------|-----------|-------|-------------|
 | 0 | 정지 | 정지 | 정지 | STOP | OFF |
 | 1 | - | morse.mp3 | - | 패턴 동기화 | - |
-| 2 | 1.mp4 | - | - | 패턴0 | - |
-| 3 | 2.mp4 | 정지 | 1.mp3 | 패턴1 | - |
-| 4 | 3.mp4 | - | 2.mp3 | 패턴2 | ON |
-| 5 | 정지 | - | 정지 | STOP | OFF |
+| 2 | 1.mp4 | 정지 | 1.mp3 | STOP | - |
+| 3 | 2.mp4 (단일) | - | 2.mp3 (단일) | - | ON → 종료 시 OFF |
 
 **버튼 동작:**
-- 끄기(off): 0→1→2→3→4→5→0 순차 진행
+- 끄기(off): 0→1→2→3 순차 진행 (3에서 멈춤, 순환 안 함)
 - 켜기(on): 씬0으로 즉시 리셋 (긴급 종료)
+
+**씬3 특수 동작:**
+- 2.mp4, 2.mp3 단일 재생 (반복 X)
+- 영상 종료 시 switch.doll 자동 OFF
 
 ### Home Assistant 설정
 
+**1. input_number 헬퍼 생성** (UI 또는 configuration.yaml):
 ```yaml
-# input_number 헬퍼 (UI에서 생성 또는 configuration.yaml)
 input_number:
   scene_state:
     name: "현재 씬 번호"
     min: 0
-    max: 5
+    max: 3
     step: 1
     initial: 0
+```
 
-# 자동화 파일: /homeassistant/automations.yaml
+**2. 자동화 추가** (ha_automations.yaml → /homeassistant/automations.yaml에 복사):
+```bash
+# HA SSH 접속 후
+cat >> /homeassistant/automations.yaml < ha_automations.yaml
+# 또는 HA UI에서 직접 추가
+```
+
+**3. RPi 플레이어 업데이트**:
+```bash
+# 영상 플레이어 (단일 재생 + finished 이벤트 지원)
+scp mqtt_video_player.py pi@192.168.0.28:~/
+sudo systemctl restart mqtt-video
+
+# MP3+Morse 플레이어
+scp mqtt_mp3_morse_player.py pi@192.168.0.28:~/
+sudo systemctl restart mqtt-mp3-morse
+```
+
+**4. macOS 플레이어 업데이트** (Mac mini에서):
+```bash
+# mac.py를 Mac mini에 복사 후 실행
+python3 mac.py
 ```
 
 ### Systemd Services (Raspberry Pi)

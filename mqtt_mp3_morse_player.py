@@ -22,8 +22,10 @@ MQTT_PORT = 1883
 MQTT_USER = "mystery"
 MQTT_PASSWORD = "qwerqwer"
 
-SERIAL_PORT = "/dev/ttyUSB1"
+# 시리얼 자동 감지 설정
 SERIAL_BAUD = 115200
+SERIAL_PORTS = ["/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyUSB2", "/dev/ttyACM0"]
+SERIAL_RETRY_INTERVAL = 10  # 연결 실패 시 재시도 간격 (초)
 
 MP3_DIR = "/home/pi/mp3"
 PATTERNS_FILE = "/home/pi/mp3/patterns.json"
@@ -32,6 +34,7 @@ PATTERNS_FILE = "/home/pi/mp3/patterns.json"
 TOPIC_COMMAND = "mp3_morse/command"
 TOPIC_STATE = "mp3_morse/state"
 TOPIC_TRACK = "mp3_morse/track"
+TOPIC_PATTERN = "scene/esp32_pattern"
 
 # ========== 전역 변수 ==========
 player_process = None
@@ -51,30 +54,90 @@ def load_patterns():
     return {}
 
 # ========== 시리얼 통신 ==========
+def find_esp32_port():
+    """ESP32가 연결된 포트를 자동으로 찾습니다."""
+    import glob
+    
+    # 사용 가능한 포트 목록 (설정 + 와일드카드 스캔)
+    ports = list(SERIAL_PORTS)
+    ports.extend(glob.glob("/dev/ttyUSB*"))
+    ports.extend(glob.glob("/dev/ttyACM*"))
+    ports = list(dict.fromkeys(ports))  # 중복 제거
+    
+    for port in ports:
+        try:
+            test_conn = serial.Serial(port, SERIAL_BAUD, timeout=1)
+            time.sleep(0.3)
+            test_conn.reset_input_buffer()
+            
+            # STATUS 명령으로 ESP32 확인
+            test_conn.write(b"STATUS\n")
+            time.sleep(0.3)
+            
+            if test_conn.in_waiting:
+                response = test_conn.readline().decode().strip()
+                if "STATUS:" in response and "deviceOn" in response:
+                    print(f"ESP32 발견: {port}")
+                    return test_conn
+            
+            test_conn.close()
+        except Exception as e:
+            pass
+    
+    return None
+
 def init_serial():
+    """시리얼 연결 초기화 (자동 포트 감지)"""
     global serial_conn
-    try:
-        serial_conn = serial.Serial(SERIAL_PORT, SERIAL_BAUD, timeout=1)
-        time.sleep(0.5)
-        print(f"시리얼 연결: {SERIAL_PORT}")
+    
+    serial_conn = find_esp32_port()
+    if serial_conn:
+        print(f"ESP32 연결 성공: {serial_conn.port}")
         return True
-    except Exception as e:
-        print(f"시리얼 연결 실패: {e}")
+    else:
+        print("ESP32를 찾을 수 없습니다. 사용 가능한 USB 포트가 없습니다.")
         return False
 
-def send_serial(cmd):
+def reconnect_serial():
+    """시리얼 재연결 시도"""
     global serial_conn
-    if serial_conn and serial_conn.is_open:
+    
+    if serial_conn:
         try:
-            serial_conn.write(f"{cmd}\n".encode())
-            serial_conn.flush()
-            time.sleep(0.02)
-            if serial_conn.in_waiting:
-                response = serial_conn.readline().decode().strip()
-                print(f"ESP32: {response}")
-                return response.startswith("OK")
-        except Exception as e:
-            print(f"시리얼 오류: {e}")
+            serial_conn.close()
+        except:
+            pass
+        serial_conn = None
+    
+    return init_serial()
+
+def send_serial(cmd):
+    """ESP32로 명령 전송 (연결 오류 시 자동 재연결)"""
+    global serial_conn
+    
+    for attempt in range(2):  # 최대 2회 시도
+        if serial_conn and serial_conn.is_open:
+            try:
+                serial_conn.write(f"{cmd}\n".encode())
+                serial_conn.flush()
+                time.sleep(0.02)
+                if serial_conn.in_waiting:
+                    response = serial_conn.readline().decode().strip()
+                    print(f"ESP32: {response}")
+                    return response.startswith("OK")
+                return True  # 응답 없어도 전송 성공으로 간주
+            except Exception as e:
+                print(f"시리얼 오류: {e}")
+                if attempt == 0:
+                    print("재연결 시도...")
+                    if reconnect_serial():
+                        continue
+        elif attempt == 0:
+            print("시리얼 연결 없음, 재연결 시도...")
+            if reconnect_serial():
+                continue
+        break
+    
     return False
 
 # ========== mpg123 remote 모드 ==========
@@ -157,9 +220,9 @@ def monitor_playback(track_path):
             # @P 0: 재생 종료 (루프 재시작)
             elif line == "@P 0":
                 print("트랙 종료 - 루프 재시작")
-                current_pattern_idx = 0
                 if current_patterns:
                     send_serial(f"PATTERN:{current_patterns[0]['pattern']}")
+                current_pattern_idx = 1  # 첫 패턴 이미 전송했으므로 1부터 시작
                 # 다시 로드
                 if playing and player_process:
                     player_process.stdin.write(f"LOAD {track_path}\n")
@@ -213,6 +276,7 @@ def on_connect(client, userdata, flags, rc, properties=None):
     print(f"MQTT 연결됨 (rc={rc})")
     client.subscribe(TOPIC_COMMAND)
     client.subscribe(TOPIC_TRACK)
+    client.subscribe(TOPIC_PATTERN)
     client.publish(TOPIC_STATE, get_state(), retain=True)
 
 def on_message(client, userdata, msg):
@@ -236,6 +300,13 @@ def on_message(client, userdata, msg):
             if play_track(payload):
                 client.publish(TOPIC_STATE, "playing", retain=True)
 
+    # ESP32 패턴 직접 제어
+    elif topic == TOPIC_PATTERN:
+        payload_upper = payload.upper()
+        if payload_upper == "STOP":
+            send_serial("STOP")
+        elif payload in ["0", "1", "2", "3"]:
+            send_serial(f"PATTERN:{payload}")
 # ========== 메인 ==========
 def signal_handler(sig, frame):
     print("\n종료 중...")

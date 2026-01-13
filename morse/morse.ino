@@ -7,9 +7,9 @@
  *   U = ..-
  * Home Assistant MQTT 연동
  *
- * 연결:
- *   X축 → GPIO 25 (DAC1)
- *   Y축 → GPIO 26 (DAC2)
+ * 연결 (X/Y 스왑):
+ *   X축 → GPIO 26 (DAC2)
+ *   Y축 → GPIO 25 (DAC1)
  */
 
 #include <Arduino.h>
@@ -18,8 +18,8 @@
 #include <ArduinoJson.h>
 #include "secrets.h"
 
-#define DAC_X 25
-#define DAC_Y 26
+#define DAC_X 26
+#define DAC_Y 25
 
 #define MAX_POINTS 1000
 uint8_t pointsX[MAX_POINTS];
