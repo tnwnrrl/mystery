@@ -110,13 +110,14 @@ def stop_mp3():
 
 def monitor_playback():
     """단일 재생 완료 시 상태 업데이트"""
-    global player_process, mqtt_client
+    global player_process, mqtt_client, stop_requested
 
     if player_process:
         player_process.wait()
-        if mqtt_client and mqtt_client.is_connected():
-            mqtt_client.publish(TOPIC_STATE, "stopped", retain=True)
-            print("재생 완료")
+        if mqtt_client and mqtt_client.is_connected() and not stop_requested:
+            # 정상 완료 시 finished, stop 명령 시 stopped
+            mqtt_client.publish(TOPIC_STATE, "finished", retain=True)
+            print("재생 완료 (finished)")
 
 # ========== MQTT 콜백 ==========
 def on_connect(client, userdata, flags, rc, properties=None):
