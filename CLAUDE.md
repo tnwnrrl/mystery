@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 sshpass -p '1' ssh pi@192.168.0.28
 
 # Home Assistant SSH
-sshpass -p 'qwerqwer' ssh mystery@192.168.0.25
+sshpass -p 'qwerqwer' ssh mystery@192.168.0.100
 
 # Mac mini SSH
 sshpass -p '1111' ssh kim@192.168.0.24
@@ -28,7 +28,7 @@ sshpass -p '1111' ssh kim@192.168.0.24
 ```
 ┌─────────────────┐      MQTT       ┌─────────────────┐      USB       ┌─────────────┐
 │  Home Assistant │◄───────────────►│  Raspberry Pi   │◄──────────────►│    ESP32    │
-│  192.168.0.25   │                 │  192.168.0.28   │  /dev/ttyUSB0  │  Morse Code │
+│  192.168.0.100   │                 │  192.168.0.28   │  /dev/ttyUSB0  │  Morse Code │
 │                 │  old_tv/*       │                 │   Serial CMD   │  DAC25/26   │
 │  Mosquitto      │  mp3_morse/*    │  ┌───────────┐  │                └─────────────┘
 │                 │  scene/*        │  │ VLC(HDMI) │  │
@@ -50,7 +50,7 @@ sshpass -p '1111' ssh kim@192.168.0.24
 |------|-----------|-----|------|
 | Raspberry Pi | eth0 | 192.168.0.28 | SSH 접속 |
 | Raspberry Pi | wlan0 | 172.20.10.x | 인터넷 (iPhone) |
-| Home Assistant | - | 192.168.0.25 | MQTT 브로커 |
+| Home Assistant | - | 192.168.0.100 | MQTT 브로커 |
 | Mac mini | - | 192.168.0.24 | macOS MP3 플레이어 |
 
 ## MQTT Topics
@@ -67,7 +67,7 @@ sshpass -p '1111' ssh kim@192.168.0.24
 | `macos_mp3/command` | HA → macOS | stop |
 | `macos_mp3/track` | HA → macOS | MP3 파일명 (반복 재생) |
 | `macos_mp3/track_once` | HA → macOS | MP3 파일명 (단일 재생) |
-| `macos_mp3/state` | macOS → HA | playing / stopped |
+| `macos_mp3/state` | macOS → HA | playing / stopped / finished |
 | `scene/esp32_pattern` | HA → RPi | 0-3 / STOP |
 
 ## ESP32 Serial Protocol
@@ -118,8 +118,8 @@ sudo systemctl status mqtt-mp3-morse
 journalctl -u mqtt-mp3-morse -f
 
 # MQTT 테스트
-mosquitto_pub -h 192.168.0.25 -u mystery -P qwerqwer -t "mp3_morse/track" -m "track1.mp3"
-mosquitto_pub -h 192.168.0.25 -u mystery -P qwerqwer -t "mp3_morse/command" -m "stop"
+mosquitto_pub -h 192.168.0.100 -u mystery -P qwerqwer -t "mp3_morse/track" -m "track1.mp3"
+mosquitto_pub -h 192.168.0.100 -u mystery -P qwerqwer -t "mp3_morse/command" -m "stop"
 
 # ESP32 시리얼 테스트
 screen /dev/ttyUSB0 115200
@@ -149,26 +149,37 @@ screen /dev/ttyUSB0 115200
 - **ESP32**: CP2102N USB-UART, DAC GPIO 25/26
 - **Display**: HDMI 1280x720 (VLC)
 - **Audio**: 3.5mm (mpg123)
-- **Remote**: IKEA RODRET (ZHA, device_id: 91afeecd96c2793ecdfebd81c5e5bc11)
+- **Remote**: IKEA RODRET (ZHA, device_id: 91afeecd96c2793ecdfebd81c5e5bc11) - 씬0-3 제어
+- **Remote2**: IKEA RODRET (ZHA, device_id: 40d8a5e1c093a93e6206baf6d0e29fea) - 씬4-5 제어
 
 ## Scene Control (씬 순차 제어)
 
-IKEA RODRET 리모컨으로 씬 순차 진행 (끄기 버튼) / 긴급 종료 (켜기 버튼)
+### RODRET 리모컨 (씬 0-3)
 
-| 씬 | 영상 | RPi MP3 | macOS MP3 | ESP32 | switch.doll |
-|----|------|---------|-----------|-------|-------------|
-| 0 | 정지 | 정지 | 정지 | STOP | OFF |
-| 1 | - | morse.mp3 | - | 패턴 동기화 | - |
-| 2 | 1.mp4 | 정지 | 1.mp3 | STOP | - |
-| 3 | 2.mp4 (단일) | - | 2.mp3 (단일) | - | ON → 종료 시 OFF |
+| 씬 | 영상 | RPi MP3 | macOS MP3 | ESP32 | switch.doll | switch.monkey |
+|----|------|---------|-----------|-------|-------------|---------------|
+| 0 | 정지 | 정지 | 정지 | STOP | OFF | OFF |
+| 1 | - | morse.mp3 | - | 패턴 동기화 | - | - |
+| 2 | 1.mp4 | 정지 | 1.mp3 | STOP | - | ON |
+| 3 | 2.mp4 (단일) | - | 2.mp3 (단일) | - | ON → MP3 종료 시 OFF | OFF |
 
 **버튼 동작:**
-- 끄기(off): 0→1→2→3 순차 진행 (3에서 멈춤, 순환 안 함)
+- 끄기(off): 0→1→2→3 순차 진행 (3에서 멈춤)
 - 켜기(on): 씬0으로 즉시 리셋 (긴급 종료)
 
-**씬3 특수 동작:**
-- 2.mp4, 2.mp3 단일 재생 (반복 X)
-- 영상 종료 시 switch.doll 자동 OFF
+### remote2 리모컨 (씬 4-5)
+
+| 씬 | light1 | light2 | macOS MP3 |
+|----|--------|--------|-----------|
+| 4 | ON | ON | - |
+| 5 | OFF → 3.mp3 종료 시 ON | OFF → 2초 후 ON | 3.mp3 (단일) |
+
+**버튼 동작:**
+- 끄기(off): 씬<4 → 씬4 (조명 켜기), 씬4 → 씬5 (시퀀스 실행)
+- 켜기(on): 씬0으로 즉시 리셋
+
+**씬5 시퀀스:**
+light1,2 OFF → 1초 → 3.mp3 재생 → 2초 → light2 ON → 3.mp3 종료 → light1 ON
 
 ### Home Assistant 설정
 
@@ -178,7 +189,7 @@ input_number:
   scene_state:
     name: "현재 씬 번호"
     min: 0
-    max: 3
+    max: 5
     step: 1
     initial: 0
 ```

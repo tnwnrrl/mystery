@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-MQTT Video Player for Raspberry Pi
-VLC로 HDMI 영상 재생, Home Assistant MQTT 연동
+MQTT Video Player - VLC 창 유지 방식
+영상 전환 시에도 VLC 창을 닫지 않고 검은 화면 유지
 
 토픽:
 - old_tv/video → 파일명 수신 시 반복 재생
@@ -10,13 +10,13 @@ VLC로 HDMI 영상 재생, Home Assistant MQTT 연동
 - old_tv/state → playing / stopped / finished (상태 발행)
 """
 
-import paho.mqtt.client as mqtt
-import subprocess
-import threading
 import os
-import signal
 import sys
+import signal
 import time
+
+import vlc
+import paho.mqtt.client as mqtt
 
 # ========== 설정 ==========
 MQTT_BROKER = "192.168.0.100"
@@ -28,23 +28,67 @@ VIDEO_DIR = "/home/pi/videos"
 
 # MQTT 토픽
 TOPIC_VIDEO = "old_tv/video"
-TOPIC_VIDEO_ONCE = "old_tv/video_once"  # 단일 재생
+TOPIC_VIDEO_ONCE = "old_tv/video_once"
 TOPIC_COMMAND = "old_tv/command"
 TOPIC_STATE = "old_tv/state"
 
 # ========== 전역 변수 ==========
-player_process = None
-monitor_thread = None
 mqtt_client = None
+vlc_instance = None
+vlc_player = None
 current_video = ""
 is_loop_mode = True
+is_playing = False
+running = True
 
-# ========== 영상 재생 ==========
+
+# ========== VLC 초기화 ==========
+def init_vlc():
+    """VLC 인스턴스 초기화 - 전체화면 검은 창"""
+    global vlc_instance, vlc_player
+
+    vlc_instance = vlc.Instance([
+        '--fullscreen',
+        '--no-osd',
+        '--no-video-title-show',
+        '--aout=alsa',
+        '--alsa-audio-device=hw:0,0',
+        '--video-on-top',
+        '--drawable-xid=0',  # root window에 그리기
+    ])
+
+    vlc_player = vlc_instance.media_player_new()
+    vlc_player.set_fullscreen(True)
+
+    # 이벤트 핸들러 등록
+    events = vlc_player.event_manager()
+    events.event_attach(vlc.EventType.MediaPlayerEndReached, on_video_end)
+
+    print("VLC 초기화 완료 (전체화면)")
+
+
+def on_video_end(event):
+    """영상 재생 완료 콜백"""
+    global is_playing, is_loop_mode
+
+    if is_loop_mode:
+        # 반복 재생
+        if vlc_player and current_video:
+            vlc_player.stop()
+            time.sleep(0.1)
+            vlc_player.play()
+    else:
+        # 단일 재생 완료
+        is_playing = False
+        if mqtt_client and mqtt_client.is_connected():
+            mqtt_client.publish(TOPIC_STATE, "finished", retain=True)
+            print("재생 완료 (finished)")
+
+
+# ========== 영상 제어 ==========
 def play_video(filename, loop=True):
-    """영상 재생. loop=True면 반복, False면 단일 재생"""
-    global player_process, monitor_thread, current_video, is_loop_mode
-
-    stop_video()
+    """영상 재생 - VLC 창 유지"""
+    global current_video, is_loop_mode, is_playing
 
     filepath = os.path.join(VIDEO_DIR, filename)
     if not os.path.exists(filepath):
@@ -52,73 +96,37 @@ def play_video(filename, loop=True):
         return False
 
     is_loop_mode = loop
+    current_video = filename
 
     try:
-        # VLC 명령 구성
-        cmd = [
-            "cvlc",  # VLC 헤드리스 모드
-            "--fullscreen",
-            "--no-osd",
-            "--aout=alsa",
-            "--alsa-audio-device=hw:0,0",  # HDMI 오디오
-        ]
+        # 기존 재생 중지 (창은 유지)
+        vlc_player.stop()
+        time.sleep(0.1)
 
-        if loop:
-            cmd.append("--loop")
+        # 새 미디어 설정
+        media = vlc_instance.media_new(filepath)
+        vlc_player.set_media(media)
+        vlc_player.play()
+        is_playing = True
 
-        cmd.append(filepath)
-
-        player_process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        )
-        current_video = filename
         print(f"재생 시작: {filename}" + (" (반복)" if loop else " (단일)"))
-
-        # 단일 재생 시 완료 모니터링
-        if not loop:
-            monitor_thread = threading.Thread(target=monitor_playback, daemon=True)
-            monitor_thread.start()
-
         return True
+
     except Exception as e:
         print(f"재생 오류: {e}")
         return False
 
 
 def stop_video():
-    """영상 정지"""
-    global player_process, current_video
+    """영상 정지 - VLC 창은 유지 (검은 화면)"""
+    global is_playing, current_video
 
-    if player_process:
-        try:
-            player_process.terminate()
-            player_process.wait(timeout=3)
-        except:
-            player_process.kill()
-        player_process = None
+    if vlc_player:
+        vlc_player.stop()
 
-    # 남은 VLC 프로세스 정리
-    try:
-        subprocess.run(["pkill", "-9", "vlc"], capture_output=True)
-    except:
-        pass
-
+    is_playing = False
     current_video = ""
-    print("재생 중지")
-
-
-def monitor_playback():
-    """단일 재생 완료 모니터링"""
-    global player_process, mqtt_client
-
-    if player_process:
-        player_process.wait()  # 프로세스 종료 대기
-
-        if mqtt_client and mqtt_client.is_connected():
-            mqtt_client.publish(TOPIC_STATE, "finished", retain=True)
-            print("재생 완료 (finished)")
+    print("재생 중지 (검은 화면 유지)")
 
 
 # ========== MQTT 콜백 ==========
@@ -139,7 +147,6 @@ def on_message(client, userdata, msg):
     print(f"수신 [{topic}]: {payload}")
 
     if topic == TOPIC_VIDEO:
-        # 반복 재생
         if payload:
             if play_video(payload, loop=True):
                 client.publish(TOPIC_STATE, "playing", retain=True)
@@ -147,7 +154,6 @@ def on_message(client, userdata, msg):
                 client.publish(TOPIC_STATE, "error", retain=True)
 
     elif topic == TOPIC_VIDEO_ONCE:
-        # 단일 재생
         if payload:
             if play_video(payload, loop=False):
                 client.publish(TOPIC_STATE, "playing", retain=True)
@@ -164,21 +170,34 @@ def on_message(client, userdata, msg):
             stop_video()
             client.publish(TOPIC_STATE, "stopped", retain=True)
         elif cmd == "status":
-            if player_process and player_process.poll() is None:
-                state = "playing"
-            else:
-                state = "stopped"
+            state = "playing" if is_playing else "stopped"
             client.publish(TOPIC_STATE, state, retain=True)
             print(f"상태: {state}, 영상: {current_video or 'none'}")
 
 
 # ========== 종료 처리 ==========
-def signal_handler(sig, frame):
-    print("\n종료 중...")
-    stop_video()
+def cleanup():
+    global running, vlc_player, mqtt_client
+
+    running = False
+
+    if vlc_player:
+        vlc_player.stop()
+        vlc_player.release()
+
+    if vlc_instance:
+        vlc_instance.release()
+
     if mqtt_client:
         mqtt_client.publish(TOPIC_STATE, "offline", retain=True)
         mqtt_client.disconnect()
+
+    print("종료 완료")
+
+
+def signal_handler(sig, frame):
+    print("\n종료 중...")
+    cleanup()
     sys.exit(0)
 
 
@@ -189,11 +208,14 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    # 비디오 디렉토리 확인
     if not os.path.exists(VIDEO_DIR):
         os.makedirs(VIDEO_DIR, exist_ok=True)
+
     print(f"비디오 디렉토리: {VIDEO_DIR}")
     print(f"MQTT 브로커: {MQTT_BROKER}")
+
+    # VLC 초기화
+    init_vlc()
 
     # MQTT 클라이언트
     mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
@@ -210,8 +232,7 @@ def main():
     except Exception as e:
         print(f"오류: {e}")
     finally:
-        stop_video()
-        mqtt_client.disconnect()
+        cleanup()
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ import signal
 import sys
 
 # ========== 설정 ==========
-MQTT_BROKER = "192.168.0.25"
+MQTT_BROKER = "192.168.0.100"
 MQTT_PORT = 1883
 MQTT_USER = "mystery"
 MQTT_PASSWORD = "qwerqwer"
