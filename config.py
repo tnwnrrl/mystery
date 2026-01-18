@@ -42,14 +42,14 @@ class Fonts:
     TITLE_FAMILY = 'Arial'
     MONO_FAMILY = 'Courier New'
 
-    # Font sizes
-    TITLE_SIZE = 36
-    SUBTITLE_SIZE = 12
-    SECTION_SIZE = 12
-    LABEL_SIZE = 10
-    VALUE_SIZE = 16
-    BUTTON_SIZE = 14
-    SPEED_SIZE = 28
+    # Font sizes (scaled 1.7x)
+    TITLE_SIZE = 61
+    SUBTITLE_SIZE = 20
+    SECTION_SIZE = 20
+    LABEL_SIZE = 17
+    VALUE_SIZE = 27
+    BUTTON_SIZE = 24
+    SPEED_SIZE = 48
 
 
 # ════════════════════════════════════════════════════════════════
@@ -58,36 +58,36 @@ class Fonts:
 
 class Layout:
     """Layout dimensions and spacing"""
-    # Window
-    WINDOW_WIDTH = 960
-    WINDOW_HEIGHT = 570
+    # Window (scaled 1.7x from original 960x570)
+    WINDOW_WIDTH = 1632
+    WINDOW_HEIGHT = 969
     WINDOW_X = 100
-    WINDOW_Y = 100
+    WINDOW_Y = 50
 
     # Margins and spacing
-    MAIN_MARGIN = 6
-    MAIN_SPACING = 6
+    MAIN_MARGIN = 10
+    MAIN_SPACING = 10
 
     # Panel sizes
-    CONTROL_PANEL_WIDTH = 250
-    HEADER_HEIGHT = 45
-    STATUS_BAR_HEIGHT = 26
+    CONTROL_PANEL_WIDTH = 425
+    HEADER_HEIGHT = 77
+    STATUS_BAR_HEIGHT = 44
 
     # Button heights
-    BUTTON_HEIGHT = 28
-    BUTTON_HEIGHT_SMALL = 24
+    BUTTON_HEIGHT = 48
+    BUTTON_HEIGHT_SMALL = 41
 
     # Speed display
-    SPEED_DISPLAY_HEIGHT = 42
-    SLIDER_HEIGHT = 18
+    SPEED_DISPLAY_HEIGHT = 71
+    SLIDER_HEIGHT = 31
 
     # Section title
-    SECTION_TITLE_WIDTH = 240
-    SECTION_TITLE_HEIGHT = 20
+    SECTION_TITLE_WIDTH = 408
+    SECTION_TITLE_HEIGHT = 34
 
     # Canvas dimensions
-    CANVAS_WIDTH = 7.5
-    CANVAS_HEIGHT = 2.4
+    CANVAS_WIDTH = 12.75
+    CANVAS_HEIGHT = 4.08
     CANVAS_DPI = 100
 
 
@@ -149,8 +149,8 @@ def get_stylesheet():
 
     #section {{
         background-color: {Colors.DARK_GRAY};
-        border: 2px solid {Colors.BORDER};
-        border-radius: 5px;
+        border: 3px solid {Colors.BORDER};
+        border-radius: 9px;
     }}
 
     #sectionTitle {{
@@ -164,9 +164,9 @@ def get_stylesheet():
     QPushButton {{
         background-color: {Colors.GREEN_DARK};
         color: {Colors.GREEN_BRIGHT};
-        border: 2px solid {Colors.GREEN_BRIGHT};
-        border-radius: 5px;
-        padding: 8px;
+        border: 3px solid {Colors.GREEN_BRIGHT};
+        border-radius: 9px;
+        padding: 14px;
     }}
 
     QPushButton:hover {{
@@ -194,8 +194,8 @@ def get_stylesheet():
 
     #parameterBox {{
         background-color: {Colors.BLACK};
-        border: 2px solid {Colors.BORDER};
-        border-radius: 3px;
+        border: 3px solid {Colors.BORDER};
+        border-radius: 5px;
     }}
 
     #paramLabel {{
@@ -208,8 +208,8 @@ def get_stylesheet():
 
     #speedDisplay {{
         background-color: {Colors.BLACK};
-        border: 3px solid {Colors.BORDER};
-        border-radius: 5px;
+        border: 5px solid {Colors.BORDER};
+        border-radius: 9px;
     }}
 
     #speedValue {{
@@ -222,15 +222,15 @@ def get_stylesheet():
 
     QSlider::groove:horizontal {{
         background: {Colors.BORDER};
-        height: 8px;
-        border-radius: 4px;
+        height: 14px;
+        border-radius: 7px;
     }}
 
     QSlider::handle:horizontal {{
         background: {Colors.GREEN_BRIGHT};
-        width: 20px;
-        margin: -6px 0;
-        border-radius: 10px;
+        width: 34px;
+        margin: -10px 0;
+        border-radius: 17px;
     }}
 
     QSlider::add-page:horizontal {{

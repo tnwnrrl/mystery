@@ -9,7 +9,7 @@ import tempfile
 import threading
 import pygame
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
-                             QHBoxLayout, QPushButton, QLabel, QSlider, QFileDialog,
+                             QHBoxLayout, QPushButton, QLabel, QFileDialog,
                              QFrame, QGridLayout)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFont
@@ -18,8 +18,7 @@ from config import (
     Colors, Fonts, Layout, get_stylesheet,
     DISPLAY_SAMPLES, WINDOW_SIZE_MS,
     ANIMATION_INTERVAL_MS, PLAYBACK_STEP_MS,
-    FFT_SIZE, SAVGOL_WINDOW,
-    SPEED_MIN, SPEED_MAX, SPEED_DEFAULT
+    FFT_SIZE, SAVGOL_WINDOW
 )
 from visualization import (
     MplCanvas, style_scope_axis,
@@ -43,7 +42,6 @@ class OscilloscopeApp(QMainWindow):
         pygame.mixer.init()
         self.is_playing = False
         self.is_paused = False
-        self.current_speed = 1.0
         self.temp_audio_file = None
         self.playback_start_time = 0
         self.playback_position = 0
@@ -102,13 +100,13 @@ class OscilloscopeApp(QMainWindow):
         title = QLabel('AUDIO SPECTRUM ANALYZER')
         title.setObjectName("title")
         title.setAlignment(Qt.AlignCenter)
-        title.setFont(QFont('Arial', 20, QFont.Bold))
+        title.setFont(QFont('Arial', 34, QFont.Bold))
         header_layout.addWidget(title)
 
         subtitle = QLabel('MODEL: ASA-2000  |  REVERSE AUDIO ANALYSIS SYSTEM')
         subtitle.setObjectName("subtitle")
         subtitle.setAlignment(Qt.AlignCenter)
-        subtitle.setFont(QFont('Courier New', 8))
+        subtitle.setFont(QFont('Courier New', 14))
         header_layout.addWidget(subtitle)
 
         layout.addWidget(header)
@@ -119,23 +117,23 @@ class OscilloscopeApp(QMainWindow):
         panel.setObjectName("controlPanel")
         panel.setFixedWidth(Layout.CONTROL_PANEL_WIDTH)
         panel_layout = QVBoxLayout(panel)
-        panel_layout.setSpacing(6)
+        panel_layout.setSpacing(10)
 
         # File input
         file_section = self.create_section("FILE INPUT")
         file_layout = QVBoxLayout()
-        file_layout.setContentsMargins(6, 22, 6, 6)
+        file_layout.setContentsMargins(10, 37, 10, 10)
 
         self.file_label = QLabel('NO SIGNAL')
         self.file_label.setObjectName("fileLabel")
         self.file_label.setAlignment(Qt.AlignCenter)
-        self.file_label.setFont(QFont('Courier New', 9, QFont.Bold))
+        self.file_label.setFont(QFont('Courier New', 15, QFont.Bold))
         self.file_label.setWordWrap(True)
         file_layout.addWidget(self.file_label)
 
         load_btn = QPushButton('LOAD FILE')
         load_btn.setObjectName("loadButton")
-        load_btn.setFont(QFont('Courier New', 10, QFont.Bold))
+        load_btn.setFont(QFont('Courier New', 17, QFont.Bold))
         load_btn.setFixedHeight(Layout.BUTTON_HEIGHT)
         load_btn.clicked.connect(self.load_file)
         file_layout.addWidget(load_btn)
@@ -146,11 +144,11 @@ class OscilloscopeApp(QMainWindow):
         # Signal processor
         proc_section = self.create_section("SIGNAL PROCESSOR")
         proc_layout = QVBoxLayout()
-        proc_layout.setContentsMargins(6, 22, 6, 6)
+        proc_layout.setContentsMargins(10, 37, 10, 10)
 
         reverse_btn = QPushButton('⟲ REVERSE SIGNAL')
         reverse_btn.setObjectName("reverseButton")
-        reverse_btn.setFont(QFont('Courier New', 10, QFont.Bold))
+        reverse_btn.setFont(QFont('Courier New', 17, QFont.Bold))
         reverse_btn.setFixedHeight(Layout.BUTTON_HEIGHT)
         reverse_btn.clicked.connect(self.reverse_audio)
         proc_layout.addWidget(reverse_btn)
@@ -158,7 +156,7 @@ class OscilloscopeApp(QMainWindow):
         self.reverse_status = QLabel('⚫ STANDBY')
         self.reverse_status.setObjectName("reverseStatus")
         self.reverse_status.setAlignment(Qt.AlignCenter)
-        self.reverse_status.setFont(QFont('Courier New', 9, QFont.Bold))
+        self.reverse_status.setFont(QFont('Courier New', 15, QFont.Bold))
         proc_layout.addWidget(self.reverse_status)
 
         proc_section.setLayout(proc_layout)
@@ -167,9 +165,9 @@ class OscilloscopeApp(QMainWindow):
         # Signal parameters
         params_section = self.create_section("SIGNAL PARAMETERS")
         params_container = QVBoxLayout()
-        params_container.setContentsMargins(6, 22, 6, 6)
+        params_container.setContentsMargins(10, 37, 10, 10)
         params_layout = QGridLayout()
-        params_layout.setSpacing(8)
+        params_layout.setSpacing(14)
 
         self.param_labels = {}
         parameters = [
@@ -188,16 +186,16 @@ class OscilloscopeApp(QMainWindow):
             param_widget = QFrame()
             param_widget.setObjectName("parameterBox")
             param_layout = QVBoxLayout(param_widget)
-            param_layout.setContentsMargins(5, 5, 5, 5)
+            param_layout.setContentsMargins(9, 9, 9, 9)
 
             label = QLabel(name)
             label.setObjectName("paramLabel")
-            label.setFont(QFont('Courier New', 8))
+            label.setFont(QFont('Courier New', 14))
             param_layout.addWidget(label)
 
             value = QLabel(f"{default} {unit}")
             value.setObjectName("paramValue")
-            value.setFont(QFont('Courier New', 12, QFont.Bold))
+            value.setFont(QFont('Courier New', 20, QFont.Bold))
             param_layout.addWidget(value)
 
             self.param_labels[name] = (value, unit)
@@ -210,27 +208,27 @@ class OscilloscopeApp(QMainWindow):
         # Playback
         play_section = self.create_section("PLAYBACK CONTROL")
         play_container = QVBoxLayout()
-        play_container.setContentsMargins(6, 22, 6, 6)
+        play_container.setContentsMargins(10, 37, 10, 10)
         play_layout = QGridLayout()
-        play_layout.setSpacing(5)
+        play_layout.setSpacing(9)
 
         self.play_btn = QPushButton('▶ PLAY')
         self.play_btn.setObjectName("playButton")
-        self.play_btn.setFont(QFont('Courier New', 9, QFont.Bold))
+        self.play_btn.setFont(QFont('Courier New', 15, QFont.Bold))
         self.play_btn.setFixedHeight(Layout.BUTTON_HEIGHT_SMALL)
         self.play_btn.clicked.connect(self.play_audio)
         play_layout.addWidget(self.play_btn, 0, 0)
 
         self.pause_btn = QPushButton('❚❚ PAUSE')
         self.pause_btn.setObjectName("playButton")
-        self.pause_btn.setFont(QFont('Courier New', 9, QFont.Bold))
+        self.pause_btn.setFont(QFont('Courier New', 15, QFont.Bold))
         self.pause_btn.setFixedHeight(Layout.BUTTON_HEIGHT_SMALL)
         self.pause_btn.clicked.connect(self.pause_audio)
         play_layout.addWidget(self.pause_btn, 0, 1)
 
         self.stop_btn = QPushButton('■ STOP')
         self.stop_btn.setObjectName("stopButton")
-        self.stop_btn.setFont(QFont('Courier New', 9, QFont.Bold))
+        self.stop_btn.setFont(QFont('Courier New', 15, QFont.Bold))
         self.stop_btn.setFixedHeight(Layout.BUTTON_HEIGHT_SMALL)
         self.stop_btn.clicked.connect(self.stop_audio)
         play_layout.addWidget(self.stop_btn, 1, 0, 1, 2)
@@ -238,44 +236,6 @@ class OscilloscopeApp(QMainWindow):
         play_container.addLayout(play_layout)
         play_section.setLayout(play_container)
         panel_layout.addWidget(play_section)
-
-        # Timebase
-        time_section = self.create_section("TIMEBASE CONTROL")
-        time_layout = QVBoxLayout()
-        time_layout.setContentsMargins(6, 22, 6, 6)
-
-        speed_display = QFrame()
-        speed_display.setObjectName("speedDisplay")
-        speed_display.setFixedHeight(Layout.SPEED_DISPLAY_HEIGHT)
-        speed_layout = QVBoxLayout(speed_display)
-
-        self.speed_label = QLabel('1.00x')
-        self.speed_label.setObjectName("speedValue")
-        self.speed_label.setAlignment(Qt.AlignCenter)
-        self.speed_label.setFont(QFont('Courier New', 18, QFont.Bold))
-        speed_layout.addWidget(self.speed_label)
-        time_layout.addWidget(speed_display)
-
-        self.speed_slider = QSlider(Qt.Horizontal)
-        self.speed_slider.setObjectName("speedSlider")
-        self.speed_slider.setMinimum(SPEED_MIN)
-        self.speed_slider.setMaximum(SPEED_MAX)
-        self.speed_slider.setValue(SPEED_DEFAULT)
-        self.speed_slider.setFixedHeight(Layout.SLIDER_HEIGHT)
-        self.speed_slider.valueChanged.connect(self.on_speed_change)
-        time_layout.addWidget(self.speed_slider)
-
-        markers = QHBoxLayout()
-        for speed in ['0.5x', '1.0x', '1.5x', '2.0x']:
-            marker = QLabel(speed)
-            marker.setObjectName("speedMarker")
-            marker.setFont(QFont('Courier New', 9))
-            marker.setAlignment(Qt.AlignCenter)
-            markers.addWidget(marker)
-        time_layout.addLayout(markers)
-
-        time_section.setLayout(time_layout)
-        panel_layout.addWidget(time_section)
 
         panel_layout.addStretch()
         layout.addWidget(panel)
@@ -285,13 +245,13 @@ class OscilloscopeApp(QMainWindow):
         panel = QFrame()
         panel.setObjectName("displayPanel")
         panel_layout = QVBoxLayout(panel)
-        panel_layout.setSpacing(6)
+        panel_layout.setSpacing(10)
 
         # CH1 - Waveform
         ch1_label = QLabel('CH1: TIME DOMAIN WAVEFORM')
         ch1_label.setObjectName("channelLabel")
         ch1_label.setAlignment(Qt.AlignCenter)
-        ch1_label.setFont(QFont('Courier New', 10, QFont.Bold))
+        ch1_label.setFont(QFont('Courier New', 17, QFont.Bold))
         panel_layout.addWidget(ch1_label)
 
         self.waveform_canvas = MplCanvas(self, width=Layout.CANVAS_WIDTH, height=Layout.CANVAS_HEIGHT)
@@ -302,7 +262,7 @@ class OscilloscopeApp(QMainWindow):
         ch2_label = QLabel('CH2: FREQUENCY DOMAIN SPECTRUM')
         ch2_label.setObjectName("channelLabel")
         ch2_label.setAlignment(Qt.AlignCenter)
-        ch2_label.setFont(QFont('Courier New', 10, QFont.Bold))
+        ch2_label.setFont(QFont('Courier New', 17, QFont.Bold))
         panel_layout.addWidget(ch2_label)
 
         self.spectrum_canvas = MplCanvas(self, width=Layout.CANVAS_WIDTH, height=Layout.CANVAS_HEIGHT)
@@ -320,14 +280,14 @@ class OscilloscopeApp(QMainWindow):
 
         self.status_label = QLabel('⚫ SYSTEM READY')
         self.status_label.setObjectName("statusLabel")
-        self.status_label.setFont(QFont('Courier New', 9, QFont.Bold))
+        self.status_label.setFont(QFont('Courier New', 15, QFont.Bold))
         status_layout.addWidget(self.status_label)
 
         status_layout.addStretch()
 
         self.time_label = QLabel('00:00.000')
         self.time_label.setObjectName("timeLabel")
-        self.time_label.setFont(QFont('Courier New', 10, QFont.Bold))
+        self.time_label.setFont(QFont('Courier New', 17, QFont.Bold))
         status_layout.addWidget(self.time_label)
 
         layout.addWidget(status)
@@ -340,7 +300,7 @@ class OscilloscopeApp(QMainWindow):
         label = QLabel(f"═══ {title} ═══")
         label.setObjectName("sectionTitle")
         label.setAlignment(Qt.AlignCenter)
-        label.setFont(QFont('Courier New', 10, QFont.Bold))
+        label.setFont(QFont('Courier New', 17, QFont.Bold))
         label.setParent(section)
         label.setGeometry(0, 0, Layout.SECTION_TITLE_WIDTH, Layout.SECTION_TITLE_HEIGHT)
 
@@ -444,7 +404,7 @@ class OscilloscopeApp(QMainWindow):
                 self.is_paused = False
                 self.update_status("PLAYBACK ACTIVE")
             else:
-                audio_to_play = self.processor.change_speed(self.current_speed)
+                audio_to_play = self.processor.change_speed(1.0)
 
                 if self.temp_audio_file:
                     try:
@@ -464,7 +424,7 @@ class OscilloscopeApp(QMainWindow):
                 self.playback_start_time = pygame.time.get_ticks()
                 self.playback_position = 0
                 self.animation_timer.start()
-                self.update_status(f"PLAYING @ {self.current_speed:.2f}x")
+                self.update_status("PLAYING")
 
         except Exception as e:
             self.update_status(f"ERROR: {str(e)}", Colors.RED)
@@ -489,15 +449,6 @@ class OscilloscopeApp(QMainWindow):
         self.draw_waveform()
         self.draw_spectrum()
         self.update_status("STOPPED", Colors.RED)
-
-    def on_speed_change(self, value):
-        """Speed change"""
-        self.current_speed = value / 10.0
-        self.speed_label.setText(f'{self.current_speed:.2f}x')
-
-        if self.is_playing and not self.is_paused:
-            self.stop_audio()
-            self.play_audio()
 
     def update_animation(self):
         """Update animation during playback"""
