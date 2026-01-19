@@ -26,6 +26,8 @@ mkdir -p "$BUILD_TMP"
 echo "[2/6] 소스 파일 복사..."
 cp qt_scope.py "$BUILD_TMP/"
 cp audio_processor.py "$BUILD_TMP/"
+cp config.py "$BUILD_TMP/"
+cp visualization.py "$BUILD_TMP/"
 cp requirements.txt "$BUILD_TMP/"
 cp ASA-2000.spec "$BUILD_TMP/"
 

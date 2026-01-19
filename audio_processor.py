@@ -4,9 +4,36 @@ Handles audio file loading, reversing, and format conversion
 """
 
 import os
+import sys
 import tempfile
 from pydub import AudioSegment
 import numpy as np
+
+
+def _setup_ffmpeg():
+    """Set ffmpeg path for pydub (for bundled macOS app)"""
+    # Check if running as bundled app (PyInstaller)
+    if getattr(sys, 'frozen', False):
+        bundle_dir = os.path.dirname(sys.executable)
+        resources_dir = os.path.realpath(os.path.join(bundle_dir, '..', 'Resources'))
+        frameworks_dir = os.path.realpath(os.path.join(bundle_dir, '..', 'Frameworks'))
+
+        # Add bundle directories to PATH (pydub uses subprocess with PATH)
+        current_path = os.environ.get("PATH", "")
+        new_paths = [resources_dir, frameworks_dir, bundle_dir]
+        for p in new_paths:
+            if os.path.exists(p) and p not in current_path:
+                os.environ["PATH"] = p + ":" + current_path
+                current_path = os.environ["PATH"]
+
+    # Also add ~/bin for development
+    home_bin = os.path.expanduser("~/bin")
+    if os.path.exists(home_bin) and home_bin not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = home_bin + ":" + os.environ.get("PATH", "")
+
+
+# Setup ffmpeg on module load
+_setup_ffmpeg()
 
 
 class AudioProcessor:

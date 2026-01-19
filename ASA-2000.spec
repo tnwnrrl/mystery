@@ -19,10 +19,17 @@ matplotlib_datas = collect_data_files('matplotlib')
 # scipy 서브모듈 수집
 scipy_hiddenimports = collect_submodules('scipy')
 
+# ffmpeg 경로 (pydub 의존성)
+ffmpeg_path = '/opt/homebrew/bin/ffmpeg'
+ffprobe_path = '/opt/homebrew/bin/ffprobe'
+
 a = Analysis(
     ['qt_scope.py'],
     pathex=[project_path],
-    binaries=[],
+    binaries=[
+        (ffmpeg_path, '.'),
+        (ffprobe_path, '.'),
+    ],
     datas=[
         *matplotlib_datas,
     ],
