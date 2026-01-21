@@ -16,7 +16,7 @@ python3.12 main.py
 
 **원격 Mac 배포 (192.168.0.24):**
 ```bash
-sshpass -p '1111' scp main.py kim@192.168.0.24:~/
+sshpass -p '1111' scp main.py scripts.json kim@192.168.0.24:~/
 sshpass -p '1111' ssh kim@192.168.0.24 'osascript -e "tell application \"Terminal\" to do script \"python3.12 main.py\""'
 ```
 
@@ -33,34 +33,45 @@ sshpass -p '1111' ssh kim@192.168.0.24 'osascript -e "tell application \"Termina
 | F1~F10 | 대본 재생 |
 | 같은 키 재누름 | 즉시 중지 |
 | 다른 키 누름 | 전환 재생 |
-| ← | 이전 문장 재생 |
-| → | 다음 문장 재생 |
+| ← | 이전 문장 (첫 문장에서 누르면 이전 F키로 이동) |
+| → | 다음 문장 (마지막 문장에서 누르면 다음 F키로 이동) |
 | Enter | 직접 입력 텍스트 재생 |
 | ESC | 종료 |
 
-## 아키텍처
+## 파일 구조
 
-단일 파일 구조 (`main.py`):
+```
+tts test/
+├── main.py          # 메인 애플리케이션
+├── scripts.json     # 대본 파일 (F1~F10)
+├── CLAUDE.md        # 프로젝트 문서
+├── requirements.txt # 의존성
+└── run.sh           # 실행 스크립트
+```
+
+## 아키텍처
 
 ```
 KoreanTTSApp
-├── scripts{}          # F1~F10 대본 딕셔너리
-├── tts_queue          # TTS 재생 큐
-├── tts_worker()       # 백그라운드 TTS 스레드
-├── play_script()      # 대본을 문장 단위로 분리 후 큐에 추가
-├── stop_playback()    # 재생 중지 (큐 비우기 + 프로세스 종료)
-└── hidden_entry       # 한글 IME 입력용 숨겨진 위젯
+├── scripts.json         # 외부 대본 파일
+├── load_scripts()       # JSON에서 대본 로드
+├── split_sentences()    # 문장 분리 (마침표/물음표/느낌표)
+├── tts_queue            # TTS 재생 큐
+├── tts_worker()         # 백그라운드 TTS 스레드
+├── play_script()        # 대본을 문장 단위로 분리 후 큐에 추가
+├── on_previous/next_sentence()  # 문장/F키 간 탐색
+├── stop_playback()      # 재생 중지 (큐 비우기 + 프로세스 종료)
+└── hidden_entry         # 한글 IME 입력용 숨겨진 위젯
 ```
-
-**문장 분리**: 마침표(.), 물음표(?), 느낌표(!) 기준으로 분리하여 순차 재생
 
 ## 대본 수정
 
-`main.py`의 `self.scripts` 딕셔너리에서 직접 수정:
-```python
-self.scripts = {
-    'F1': "첫 번째 대사. 두 번째 문장.",
-    'F2': "...",
+`scripts.json` 파일에서 직접 수정 (코드 수정 불필요):
+```json
+{
+    "F1": "첫 번째 대사. 두 번째 문장.",
+    "F2": "...",
+    "F3": "..."
 }
 ```
 
