@@ -13,6 +13,8 @@ import queue
 import subprocess
 import re
 import time
+import json
+import os
 
 
 class KoreanTTSApp:
@@ -27,19 +29,8 @@ class KoreanTTSApp:
         # ESC 키로 종료
         self.root.bind('<Escape>', lambda e: self.root.quit())
 
-        # 대본 딕셔너리 (F1~F10)
-        self.scripts = {
-            'F1': "누군데 마음대로 남의 가게에 들어오나! 문도 잠궈 놨는데 어떻게 들어온거야? 여긴 어떻게 찾아왔어?",
-            'F2': "여기까지 흘러 왔다는건 그만한 이유가 있겠지. 거기 옆에 매고 있는 인형 나한테 줘봐.",
-            'F3': "이거 확인을 해 봐야겠는데? 일단 이놈 먼저 처리해야 하는데. 나 좀 도와 주지 않겠나? 그럼 나도 자네들을 도와주지.",
-            'F4': "먼저 여기 책상에 있는 표를 보고 주파수를 찾아봐. 주파수를 잘 맞추면 TV 채널을 맞출 수 있을게야.",
-            'F5': "덕분에 빨리 봉인할 수 있었네. 나는 인형이나 물건에 깃든 악령이나 사념을 다루는 일을 하고 있다네.",
-            'F6': "이 방법으로는 안되겠구만 날 따라오게.",
-            'F7': "이 곳은 물건의 사념을 찍을 수 있는 곳이라네. 자네들 앞에 있는 제단에 인형을 올려두고, 마치 가족사진을 찍듯이 다정하게 포즈를 취해주게. 가족같은 느낌이 아니면 사념이 찍히지 않으니, 최대한 다정하게 표정을 지어 주게나.",
-            'F8': "아무래도 안에 뭐가 있긴 한가 보구만 날 따라오게",
-            'F9': "이거 무언가를 거꾸로 말 하는것 같은데? 잠시만 기다려 보게.",
-            'F10': "아무래도 자네들에게 필요한 것 같구만. 그 인형은 나한테 주고 가게나, 가지고 다니기엔 위험한 물건이니 나에게 맡기고 가게. 무엇을 쫒고 있는지 모르겠지만 부디 조심하게나.",
-        }
+        # 대본 로드 (scripts.json)
+        self.scripts = self.load_scripts()
 
         # 펑션키 바인딩 (F1~F10)
         for i in range(1, 11):
@@ -183,21 +174,61 @@ class KoreanTTSApp:
         self.current_key = None
         self.subtitle_label.config(text="")
 
+    def get_function_keys(self):
+        """사용 가능한 F키 목록 (정렬된 순서)"""
+        return sorted(self.scripts.keys(), key=lambda x: int(x[1:]))
+
+    def split_sentences(self, text):
+        """텍스트를 문장 단위로 분리"""
+        sentences = re.split(r'([.?!])', text)
+        combined = []
+        for i in range(0, len(sentences) - 1, 2):
+            combined.append(sentences[i] + sentences[i + 1])
+        if len(sentences) % 2 == 1 and sentences[-1].strip():
+            combined.append(sentences[-1])
+        return [s.strip() for s in combined if s.strip()]
+
     def on_previous_sentence(self, event):
-        """왼쪽 화살표로 이전 문장 재생"""
+        """왼쪽 화살표로 이전 문장 재생 (F키 간 이동 포함)"""
         if self.is_playing:
             return
+
         if self.current_sentences and self.current_index > 0:
+            # 같은 F키 내에서 이전 문장
             self.current_index -= 1
             self.play_single_sentence(self.current_sentences[self.current_index])
+        elif self.current_key:
+            # 이전 F키로 이동
+            keys = self.get_function_keys()
+            current_idx = keys.index(self.current_key) if self.current_key in keys else -1
+            if current_idx > 0:
+                prev_key = keys[current_idx - 1]
+                self.current_key = prev_key
+                self.current_sentences = self.split_sentences(self.scripts[prev_key])
+                self.current_index = len(self.current_sentences) - 1  # 마지막 문장
+                if self.current_sentences:
+                    self.play_single_sentence(self.current_sentences[self.current_index])
 
     def on_next_sentence(self, event):
-        """오른쪽 화살표로 다음 문장 재생"""
+        """오른쪽 화살표로 다음 문장 재생 (F키 간 이동 포함)"""
         if self.is_playing:
             return
+
         if self.current_sentences and self.current_index < len(self.current_sentences) - 1:
+            # 같은 F키 내에서 다음 문장
             self.current_index += 1
             self.play_single_sentence(self.current_sentences[self.current_index])
+        elif self.current_key:
+            # 다음 F키로 이동
+            keys = self.get_function_keys()
+            current_idx = keys.index(self.current_key) if self.current_key in keys else -1
+            if current_idx < len(keys) - 1:
+                next_key = keys[current_idx + 1]
+                self.current_key = next_key
+                self.current_sentences = self.split_sentences(self.scripts[next_key])
+                self.current_index = 0  # 첫 문장
+                if self.current_sentences:
+                    self.play_single_sentence(self.current_sentences[self.current_index])
 
     def play_single_sentence(self, sentence):
         """단일 문장 재생"""
@@ -205,19 +236,7 @@ class KoreanTTSApp:
 
     def play_script(self, key):
         """대본 재생 - 문장 분리 후 순차 재생"""
-        text = self.scripts[key]
-
-        # 마침표, 물음표, 느낌표 기준으로 문장 분리
-        sentences = re.split(r'([.?!])', text)
-        # 구분자를 문장에 붙이기
-        combined = []
-        for i in range(0, len(sentences) - 1, 2):
-            combined.append(sentences[i] + sentences[i + 1])
-        if len(sentences) % 2 == 1 and sentences[-1].strip():
-            combined.append(sentences[-1])
-
-        # 문장 리스트 저장
-        self.current_sentences = [s.strip() for s in combined if s.strip()]
+        self.current_sentences = self.split_sentences(self.scripts[key])
         self.current_index = 0
 
         # 각 문장을 큐에 넣기
@@ -229,6 +248,19 @@ class KoreanTTSApp:
         # Entry를 비우고 sent_text도 리셋
         self.entry_var.set("")
         self.sent_text = ""
+
+    def load_scripts(self):
+        """scripts.json에서 대본 로드"""
+        script_path = os.path.join(os.path.dirname(__file__), 'scripts.json')
+        try:
+            with open(script_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            print(f"경고: {script_path} 파일을 찾을 수 없습니다. 기본 대본을 사용합니다.")
+            return {f'F{i}': f"F{i} 대본이 설정되지 않았습니다." for i in range(1, 11)}
+        except json.JSONDecodeError as e:
+            print(f"경고: scripts.json 파싱 오류: {e}")
+            return {f'F{i}': f"F{i} 대본이 설정되지 않았습니다." for i in range(1, 11)}
 
     def tts_worker(self):
         """TTS 처리 스레드"""
