@@ -14,7 +14,7 @@ python3.12 main.py
 ./run.sh
 ```
 
-**원격 Mac 배포 (192.168.0.24):**
+**원격 Mac 배포**: [ssh.md](ssh.md) 참조
 ```bash
 sshpass -p '1111' scp main.py scripts.json kim@192.168.0.24:~/
 sshpass -p '1111' ssh kim@192.168.0.24 'osascript -e "tell application \"Terminal\" to do script \"python3.12 main.py\""'
@@ -44,6 +44,7 @@ sshpass -p '1111' ssh kim@192.168.0.24 'osascript -e "tell application \"Termina
 tts test/
 ├── main.py          # 메인 애플리케이션
 ├── scripts.json     # 대본 파일 (F1~F10)
+├── ssh.md           # SSH 접속 정보 (장치별)
 ├── CLAUDE.md        # 프로젝트 문서
 ├── requirements.txt # 의존성
 └── run.sh           # 실행 스크립트
