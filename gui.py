@@ -79,8 +79,15 @@ class LayoutApp:
         # 폴더에서 6장 로드 버튼
         ttk.Button(
             left_frame,
-            text="폴더에서 6장 로드",
+            text="폴더에서 로드",
             command=self._load_from_folder
+        ).pack(pady=(5, 0), fill=tk.X)
+
+        # 자동 채우기 버튼
+        ttk.Button(
+            left_frame,
+            text="빈 슬롯 자동 채우기",
+            command=self._on_auto_fill_click
         ).pack(pady=(5, 0), fill=tk.X)
 
         # 우측: 미리보기 및 액션
@@ -231,7 +238,7 @@ class LayoutApp:
             self._clear_slot(i)
 
     def _load_from_folder(self):
-        """폴더에서 처음 6개 이미지 로드"""
+        """폴더에서 이미지 로드 (6장 미만이면 마지막 사진으로 채움)"""
         folder = filedialog.askdirectory(title="이미지 폴더 선택")
         if not folder:
             return
@@ -253,8 +260,55 @@ class LayoutApp:
             path = os.path.join(folder, img_name)
             self._load_image_to_slot(i, path)
 
-        count = min(len(images), 6)
-        self.status_var.set(f"{count}개 이미지 로드됨")
+        # 6장 미만이면 마지막 사진으로 자동 채우기
+        loaded_count = min(len(images), 6)
+        if loaded_count < 6:
+            self._auto_fill_empty_slots()
+            self.status_var.set(f"{loaded_count}장 로드 → 6장으로 자동 채움")
+        else:
+            self.status_var.set(f"{loaded_count}개 이미지 로드됨")
+
+    def _auto_fill_empty_slots(self):
+        """빈 슬롯을 마지막 유효 이미지로 채우기"""
+        # 마지막 유효 이미지 찾기
+        last_valid_path = None
+        last_valid_index = -1
+
+        for i in range(6):
+            if self.slot_paths[i] is not None:
+                last_valid_path = self.slot_paths[i]
+                last_valid_index = i
+
+        if last_valid_path is None:
+            return  # 이미지가 하나도 없음
+
+        # 빈 슬롯 채우기
+        filled_count = 0
+        for i in range(6):
+            if self.slot_paths[i] is None:
+                self._load_image_to_slot(i, last_valid_path)
+                # 버튼 색상을 다르게 표시 (자동 채워진 슬롯)
+                self.slot_buttons[i].config(bg='#87CEEB')  # 하늘색
+                filled_count += 1
+
+        return filled_count
+
+    def _on_auto_fill_click(self):
+        """자동 채우기 버튼 클릭"""
+        # 유효한 이미지가 있는지 확인
+        has_image = any(p is not None for p in self.slot_paths)
+        if not has_image:
+            messagebox.showwarning("경고", "최소 1개 이상의 이미지를 먼저 선택하세요.")
+            return
+
+        # 이미 6개 다 채워져 있는지 확인
+        empty_count = sum(1 for p in self.slot_paths if p is None)
+        if empty_count == 0:
+            messagebox.showinfo("알림", "모든 슬롯이 이미 채워져 있습니다.")
+            return
+
+        filled = self._auto_fill_empty_slots()
+        self.status_var.set(f"{filled}개 슬롯 자동 채움 완료")
 
     def _on_mode_change(self):
         """fill/fit 모드 변경"""
