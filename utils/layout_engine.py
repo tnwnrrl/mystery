@@ -1,24 +1,25 @@
 """
-6컷 레이아웃 합성 엔진
-DNP DS620 6x8" 용지에 2x3 그리드로 사진 6장 배치
+4컷 레이아웃 합성 엔진
+DNP DS620 6x8" 용지에 2x2 그리드로 사진 4장 배치
 """
 
 from PIL import Image
 import os
 
 
-# 상수 정의 (6x8" @ 300DPI)
-CANVAS_WIDTH = 1800
-CANVAS_HEIGHT = 2400
-CELL_WIDTH = 900
-CELL_HEIGHT = 800
+# 상수 정의 (8x6" @ 300DPI, 가로 방향)
+CANVAS_WIDTH = 2400
+CANVAS_HEIGHT = 1800
+CELL_WIDTH = 1200
+CELL_HEIGHT = 900
 COLUMNS = 2
-ROWS = 3
+ROWS = 2
+NUM_SLOTS = 4
 DPI = 300
 
 
 class LayoutEngine:
-    """6컷 레이아웃 합성 엔진"""
+    """4컷 레이아웃 합성 엔진"""
 
     def __init__(self, fit_mode='fill'):
         """
@@ -26,7 +27,7 @@ class LayoutEngine:
             fit_mode: 'fill' (셀 채우기, 크롭) 또는 'fit' (비율 유지, 여백)
         """
         self.fit_mode = fit_mode
-        self.slots = [None] * 6  # 6개 슬롯
+        self.slots = [None] * NUM_SLOTS  # 4개 슬롯
         self.slot_positions = self._calculate_positions()
 
     def _calculate_positions(self):
@@ -50,7 +51,7 @@ class LayoutEngine:
         Returns:
             bool: 성공 여부
         """
-        if not 0 <= index < 6:
+        if not 0 <= index < NUM_SLOTS:
             return False
 
         try:
@@ -65,14 +66,14 @@ class LayoutEngine:
 
     def clear_image(self, index):
         """슬롯에서 이미지 제거"""
-        if 0 <= index < 6:
+        if 0 <= index < NUM_SLOTS:
             if self.slots[index]:
                 self.slots[index].close()
             self.slots[index] = None
 
     def clear_all(self):
         """모든 슬롯 비우기"""
-        for i in range(6):
+        for i in range(NUM_SLOTS):
             self.clear_image(i)
 
     def set_fit_mode(self, mode):
@@ -196,4 +197,4 @@ class LayoutEngine:
 
     def is_slot_filled(self, index):
         """특정 슬롯에 이미지가 있는지 확인"""
-        return 0 <= index < 6 and self.slots[index] is not None
+        return 0 <= index < NUM_SLOTS and self.slots[index] is not None

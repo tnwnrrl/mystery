@@ -16,12 +16,14 @@ from utils.printer import MacPrinter
 
 
 class LayoutApp:
-    """6컷 레이아웃 메인 앱"""
+    """4컷 레이아웃 메인 앱"""
+
+    NUM_SLOTS = 4
 
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("6컷 레이아웃 - DNP DS620")
-        self.root.geometry("800x650")
+        self.root.title("4컷 레이아웃 - DNP DS620")
+        self.root.geometry("1100x900")
         self.root.resizable(False, False)
 
         # 엔진 및 프린터
@@ -36,7 +38,7 @@ class LayoutApp:
         # 슬롯 버튼 참조
         self.slot_buttons = []
         self.slot_labels = []
-        self.slot_paths = [None] * 6
+        self.slot_paths = [None] * self.NUM_SLOTS
 
         # 미리보기 이미지 참조 (GC 방지)
         self.preview_photo = None
@@ -95,14 +97,14 @@ class LayoutApp:
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
         # 미리보기 캔버스
-        preview_label = ttk.Label(right_frame, text="미리보기 (6x8\")")
+        preview_label = ttk.Label(right_frame, text="미리보기 (8x6\")")
         preview_label.pack()
 
-        # 450x600 미리보기 (1800x2400의 1/4)
+        # 720x540 미리보기 (2400x1800의 0.3배, 가로 방향)
         self.preview_canvas = tk.Canvas(
             right_frame,
-            width=450,
-            height=600,
+            width=720,
+            height=540,
             bg='white',
             relief='sunken',
             bd=2
@@ -139,15 +141,15 @@ class LayoutApp:
             action_frame,
             text="저장",
             command=self._save_layout,
-            width=12
-        ).pack(side=tk.LEFT, padx=5)
+            width=15
+        ).pack(side=tk.LEFT, padx=10)
 
         ttk.Button(
             action_frame,
             text="인쇄",
             command=self._print_layout,
-            width=12
-        ).pack(side=tk.LEFT, padx=5)
+            width=15
+        ).pack(side=tk.LEFT, padx=10)
 
         # 상태 표시
         self.status_var = tk.StringVar(value="이미지를 선택하세요")
@@ -159,30 +161,31 @@ class LayoutApp:
         status_label.pack(pady=10)
 
     def _create_slot_buttons(self, parent):
-        """6개 슬롯 버튼 생성"""
+        """4개 슬롯 버튼 생성"""
         grid_frame = ttk.Frame(parent)
         grid_frame.pack()
 
-        for i in range(6):
+        for i in range(self.NUM_SLOTS):
             row = i // 2
             col = i % 2
 
             slot_frame = ttk.Frame(grid_frame)
             slot_frame.grid(row=row, column=col, padx=5, pady=5)
 
-            # 썸네일 버튼 (120x100)
+            # 썸네일 버튼 (더 크게)
             btn = tk.Button(
                 slot_frame,
                 text=f"{i+1}",
-                width=14,
-                height=6,
+                width=18,
+                height=8,
                 bg='#f0f0f0',
+                font=('Arial', 14),
                 command=lambda idx=i: self._select_image(idx)
             )
             btn.pack()
 
             # 파일명 라벨
-            label = ttk.Label(slot_frame, text="(비어있음)", width=16)
+            label = ttk.Label(slot_frame, text="(비어있음)", width=20)
             label.pack()
 
             self.slot_buttons.append(btn)
@@ -234,11 +237,11 @@ class LayoutApp:
 
     def _clear_all(self):
         """모든 슬롯 비우기"""
-        for i in range(6):
+        for i in range(self.NUM_SLOTS):
             self._clear_slot(i)
 
     def _load_from_folder(self):
-        """폴더에서 이미지 로드 (6장 미만이면 마지막 사진으로 채움)"""
+        """폴더에서 이미지 로드 (4장 미만이면 마지막 사진으로 채움)"""
         folder = filedialog.askdirectory(title="이미지 폴더 선택")
         if not folder:
             return
@@ -254,17 +257,17 @@ class LayoutApp:
             messagebox.showinfo("알림", "폴더에 이미지가 없습니다.")
             return
 
-        # 최대 6개 로드
+        # 최대 4개 로드
         self._clear_all()
-        for i, img_name in enumerate(images[:6]):
+        for i, img_name in enumerate(images[:self.NUM_SLOTS]):
             path = os.path.join(folder, img_name)
             self._load_image_to_slot(i, path)
 
-        # 6장 미만이면 마지막 사진으로 자동 채우기
-        loaded_count = min(len(images), 6)
-        if loaded_count < 6:
+        # 4장 미만이면 마지막 사진으로 자동 채우기
+        loaded_count = min(len(images), self.NUM_SLOTS)
+        if loaded_count < self.NUM_SLOTS:
             self._auto_fill_empty_slots()
-            self.status_var.set(f"{loaded_count}장 로드 → 6장으로 자동 채움")
+            self.status_var.set(f"{loaded_count}장 로드 → {self.NUM_SLOTS}장으로 자동 채움")
         else:
             self.status_var.set(f"{loaded_count}개 이미지 로드됨")
 
@@ -274,7 +277,7 @@ class LayoutApp:
         last_valid_path = None
         last_valid_index = -1
 
-        for i in range(6):
+        for i in range(self.NUM_SLOTS):
             if self.slot_paths[i] is not None:
                 last_valid_path = self.slot_paths[i]
                 last_valid_index = i
@@ -284,7 +287,7 @@ class LayoutApp:
 
         # 빈 슬롯 채우기
         filled_count = 0
-        for i in range(6):
+        for i in range(self.NUM_SLOTS):
             if self.slot_paths[i] is None:
                 self._load_image_to_slot(i, last_valid_path)
                 # 버튼 색상을 다르게 표시 (자동 채워진 슬롯)
@@ -317,12 +320,12 @@ class LayoutApp:
 
     def _update_preview(self):
         """미리보기 업데이트"""
-        preview = self.engine.generate_preview(scale=0.25)
+        preview = self.engine.generate_preview(scale=0.3)
         self.preview_photo = ImageTk.PhotoImage(preview)
 
         self.preview_canvas.delete("all")
         self.preview_canvas.create_image(
-            225, 300,  # 중앙
+            360, 270,  # 중앙
             image=self.preview_photo,
             anchor=tk.CENTER
         )
@@ -331,23 +334,22 @@ class LayoutApp:
         self._draw_grid_lines()
 
     def _draw_grid_lines(self):
-        """미리보기에 그리드 선 표시"""
-        # 세로선 (중앙)
-        self.preview_canvas.create_line(225, 0, 225, 600, fill='#cccccc', dash=(2, 2))
+        """미리보기에 그리드 선 표시 (2x2, 가로 방향)"""
+        # 세로선 (중앙) - 720/2 = 360
+        self.preview_canvas.create_line(360, 0, 360, 540, fill='#cccccc', dash=(2, 2))
 
-        # 가로선 (1/3, 2/3)
-        self.preview_canvas.create_line(0, 200, 450, 200, fill='#cccccc', dash=(2, 2))
-        self.preview_canvas.create_line(0, 400, 450, 400, fill='#cccccc', dash=(2, 2))
+        # 가로선 (중앙) - 540/2 = 270
+        self.preview_canvas.create_line(0, 270, 720, 270, fill='#cccccc', dash=(2, 2))
 
     def _update_status(self):
         """상태 표시 업데이트"""
         count = self.engine.get_slot_count()
         if count == 0:
             self.status_var.set("이미지를 선택하세요")
-        elif count < 6:
-            self.status_var.set(f"{count}/6 이미지 선택됨")
+        elif count < self.NUM_SLOTS:
+            self.status_var.set(f"{count}/{self.NUM_SLOTS} 이미지 선택됨")
         else:
-            self.status_var.set("6개 이미지 준비됨 - 저장 또는 인쇄 가능")
+            self.status_var.set(f"{self.NUM_SLOTS}개 이미지 준비됨 - 저장 또는 인쇄 가능")
 
     def _save_layout(self):
         """레이아웃 저장"""

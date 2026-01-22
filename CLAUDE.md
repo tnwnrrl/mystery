@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
@@ -19,15 +19,7 @@ python3 gui.py
 python3 -c "
 from utils.layout_engine import LayoutEngine
 engine = LayoutEngine()
-layout = engine.generate_layout()
-print(f'캔버스 크기: {layout.size}')  # (1800, 2400)
-"
-
-# 프린터 목록 확인
-python3 -c "
-from utils.printer import MacPrinter
-printer = MacPrinter()
-print(printer.list_printers())
+print(f'캔버스: {engine.generate_layout().size}')  # (1800, 2400)
 "
 
 # 의존성 설치
@@ -37,10 +29,12 @@ pip install -r requirements.txt
 ## Architecture
 
 ```
-사용자 이미지 선택
+이미지 선택/폴더 로드
     ↓
 LayoutEngine.load_image(index, path)
     ↓ 슬롯 0-5에 저장
+    ↓
+[6장 미만?] → _auto_fill_empty_slots() → 마지막 사진으로 채움
     ↓
 LayoutEngine._fit_image_to_cell(img)
     ↓ fill (크롭) 또는 fit (여백) 모드
@@ -48,19 +42,14 @@ LayoutEngine._fit_image_to_cell(img)
 LayoutEngine.generate_layout()
     ↓ 1800x2400 캔버스에 합성
     ↓
-LayoutEngine.save_layout(path)
-    ↓ JPEG 300 DPI
-    ↓
 MacPrinter.print_image_directly(path)
-    ↓ Preview 앱으로 열기
-인쇄
+    ↓ Preview 앱으로 열기 → 인쇄
 ```
 
 ### 픽셀 계산 (6x8" @ 300DPI)
 
 ```
 전체 캔버스: 1800 x 2400 pixels
-그리드: 2열 x 3행
 셀 크기: 900 x 800 pixels
 
 ┌─────────┬─────────┐
@@ -77,17 +66,16 @@ MacPrinter.print_image_directly(path)
 
 | 파일 | 역할 |
 |------|------|
-| `gui.py` | 메인 진입점. tkinter GUI |
+| `gui.py` | 메인 진입점. tkinter GUI, 자동 채우기 기능 |
 | `utils/layout_engine.py` | `LayoutEngine` - 6컷 합성 엔진 |
 | `utils/printer.py` | `MacPrinter` - macOS 프린터 연동 |
-| `config.json` | 설정 (캔버스 크기, DPI, 출력 폴더) |
 
 ## Fit Modes
 
-| 모드 | 설명 | 결과 |
-|------|------|------|
-| `fill` | 셀을 완전히 채움 | 이미지 일부 크롭 |
-| `fit` | 비율 유지 | 흰 여백 발생 가능 |
+| 모드 | 설명 |
+|------|------|
+| `fill` | 셀을 완전히 채움 (이미지 일부 크롭) |
+| `fit` | 비율 유지 (흰 여백 발생 가능) |
 
 ## Key Constraints
 
