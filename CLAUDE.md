@@ -4,27 +4,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-대본 기반 TTS 프로그램 - 펑션키(F1~F10)로 미리 설정된 대사를 재생하고, 직접 한글 입력도 가능한 자막 시스템
+대본 기반 TTS 프로그램 - 펑션키(F1~F10)로 미리 설정된 대사를 재생하고, 직접 한글 입력도 가능한 자막 시스템. 보조 모니터가 있으면 자동으로 보조 모니터에서 전체화면 실행.
 
-## 실행 방법
+## 실행 및 배포
 
 ```bash
+# 로컬 실행
 python3.12 main.py
-# 또는
-./run.sh
+
+# Mac mini 원격 배포 (한 줄)
+sshpass -p '1111' scp main.py scripts.json kim@192.168.0.24:~/ && \
+sshpass -p '1111' ssh kim@192.168.0.24 'pkill -f "python3.12 main.py"; osascript -e "tell application \"Terminal\" to do script \"cd ~ && /usr/local/bin/python3.12 main.py\""'
 ```
 
-**원격 Mac 배포**: [ssh.md](ssh.md) 참조
-```bash
-sshpass -p '1111' scp main.py scripts.json kim@192.168.0.24:~/
-sshpass -p '1111' ssh kim@192.168.0.24 'osascript -e "tell application \"Terminal\" to do script \"python3.12 main.py\""'
-```
+**주의**: Mac mini에서는 `/usr/local/bin/python3.12` 전체 경로 필수 (PATH 미설정)
 
 ## 주요 제약사항
 
 - **macOS 전용**: `say` 명령어와 Yuna 음성 사용
 - **Python 3.12 필요**: 원격 Mac에서 tkinter 호환성 문제로 3.12 사용
 - **오프라인 작동**: 인터넷 연결 불필요
+- **보조 모니터 배치**: 메인 모니터 오른쪽에 있다고 가정
 
 ## 조작법
 
@@ -38,31 +38,20 @@ sshpass -p '1111' ssh kim@192.168.0.24 'osascript -e "tell application \"Termina
 | Enter | 직접 입력 텍스트 재생 |
 | ESC | 종료 |
 
-## 파일 구조
-
-```
-tts test/
-├── main.py          # 메인 애플리케이션
-├── scripts.json     # 대본 파일 (F1~F10)
-├── ssh.md           # SSH 접속 정보 (장치별)
-├── CLAUDE.md        # 프로젝트 문서
-├── requirements.txt # 의존성
-└── run.sh           # 실행 스크립트
-```
-
 ## 아키텍처
 
 ```
+get_secondary_monitor()     # system_profiler로 보조 모니터 감지
+                            # 메인 오른쪽 모니터 좌표 반환
+
 KoreanTTSApp
-├── scripts.json         # 외부 대본 파일
-├── load_scripts()       # JSON에서 대본 로드
-├── split_sentences()    # 문장 분리 (마침표/물음표/느낌표)
-├── tts_queue            # TTS 재생 큐
-├── tts_worker()         # 백그라운드 TTS 스레드
-├── play_script()        # 대본을 문장 단위로 분리 후 큐에 추가
+├── load_scripts()          # scripts.json에서 대본 로드
+├── split_sentences()       # 문장 분리 (마침표/물음표/느낌표)
+├── tts_queue + tts_worker  # 백그라운드 TTS 스레드
+├── play_script()           # 대본을 문장 단위로 큐에 추가
 ├── on_previous/next_sentence()  # 문장/F키 간 탐색
-├── stop_playback()      # 재생 중지 (큐 비우기 + 프로세스 종료)
-└── hidden_entry         # 한글 IME 입력용 숨겨진 위젯
+├── stop_playback()         # 재생 중지 (큐 비우기 + 프로세스 종료)
+└── hidden_entry            # 한글 IME 입력용 숨겨진 위젯
 ```
 
 ## 대본 수정
@@ -71,8 +60,7 @@ KoreanTTSApp
 ```json
 {
     "F1": "첫 번째 대사. 두 번째 문장.",
-    "F2": "...",
-    "F3": "..."
+    "F2": "..."
 }
 ```
 
@@ -83,3 +71,7 @@ KoreanTTSApp
 # 사용 가능한 한국어 음성: Yuna, Eddy, Flo, Grandma, Grandpa, Reed, Rocko, Sandy, Shelley
 '-v', 'Yuna'
 ```
+
+## 원격 장치 정보
+
+[ssh.md](ssh.md) 참조 - Mac mini (192.168.0.24), Raspberry Pi (192.168.0.28), Home Assistant (192.168.0.100)
