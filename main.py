@@ -16,14 +16,64 @@ import time
 import json
 import os
 
+def get_secondary_monitor():
+    """보조 모니터 정보 반환 (없으면 None)"""
+    try:
+        # system_profiler로 디스플레이 정보 가져오기
+        result = subprocess.run(
+            ['system_profiler', 'SPDisplaysDataType', '-json'],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            import json as json_module
+            data = json_module.loads(result.stdout)
+            displays = []
+            for gpu in data.get('SPDisplaysDataType', []):
+                for display in gpu.get('spdisplays_ndrvs', []):
+                    # "_spdisplays_pixels" 필드 사용 (예: "1920 x 1080")
+                    res = display.get('_spdisplays_pixels', '')
+                    if ' x ' in res:
+                        parts = res.split(' x ')
+                        if len(parts) == 2:
+                            w = int(parts[0].strip())
+                            h = int(parts[1].strip())
+                            is_main = display.get('spdisplays_main') == 'spdisplays_yes'
+                            displays.append({'width': w, 'height': h, 'is_main': is_main})
+
+            # 메인이 아닌 디스플레이 찾기
+            for d in displays:
+                if not d['is_main']:
+                    # 보조 모니터는 메인 오른쪽에 있음 (x = 메인너비)
+                    main_width = next((x['width'] for x in displays if x['is_main']), 0)
+                    return {
+                        'x': main_width,
+                        'y': 0,
+                        'width': d['width'],
+                        'height': d['height']
+                    }
+    except Exception:
+        pass
+    return None
+
 
 class KoreanTTSApp:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("한글 TTS 자막")
 
-        # 전체 화면 설정
-        self.root.attributes('-fullscreen', True)
+        # 보조 모니터 감지
+        secondary = get_secondary_monitor()
+
+        if secondary:
+            # 보조 모니터에 전체화면 (fullscreen 사용)
+            screen_width = secondary['width']
+            self.root.geometry(f"+{secondary['x']}+{secondary['y']}")
+            self.root.attributes('-fullscreen', True)
+        else:
+            # 메인 모니터에 전체화면
+            self.root.attributes('-fullscreen', True)
+            screen_width = self.root.winfo_screenwidth()
+
         self.root.configure(bg='black')
 
         # ESC 키로 종료
@@ -61,19 +111,9 @@ class KoreanTTSApp:
             font=self.subtitle_font,
             fg='white',
             bg='black',
-            wraplength=self.root.winfo_screenwidth() - 100
+            wraplength=screen_width - 100
         )
         self.subtitle_label.place(relx=0.5, rely=0.5, anchor='center')
-
-        # 안내 텍스트
-        self.info_label = tk.Label(
-            self.root,
-            text="F1~F10: 대사 재생 | ←→: 문장 이동 | ESC: 종료",
-            font=('AppleGothic', 16),
-            fg='gray',
-            bg='black'
-        )
-        self.info_label.place(relx=0.5, rely=0.95, anchor='center')
 
         # 숨겨진 Entry 위젯 (한글 IME 입력용)
         self.entry_var = tk.StringVar()
