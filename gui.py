@@ -377,27 +377,34 @@ class LayoutApp:
                 messagebox.showerror("오류", "저장에 실패했습니다.")
 
     def _print_layout(self):
-        """레이아웃 인쇄"""
+        """개별 사진 인쇄 (6x4 크기, 자동 커팅)"""
         if self.engine.get_slot_count() == 0:
             messagebox.showwarning("경고", "최소 1개 이상의 이미지를 선택하세요.")
             return
 
-        # 임시 파일 저장
+        # 임시 디렉토리에 개별 사진 준비
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        temp_path = os.path.join(self.output_dir, f"print_{timestamp}.jpg")
+        temp_dir = os.path.join(self.output_dir, f"print_{timestamp}")
 
-        if not self.engine.save_layout(temp_path):
-            messagebox.showerror("오류", "인쇄용 파일 생성에 실패했습니다.")
-            return
+        try:
+            # 개별 사진 6x4 크기로 준비
+            file_paths = self.engine.prepare_individual_prints(temp_dir)
 
-        # Preview 앱으로 열기
-        success, message = self.printer.print_image_directly(temp_path)
+            if not file_paths:
+                messagebox.showerror("오류", "인쇄용 파일 생성에 실패했습니다.")
+                return
 
-        if success:
-            self.status_var.set(message)
-            messagebox.showinfo("인쇄", message)
-        else:
-            messagebox.showerror("오류", message)
+            # 개별 사진 인쇄 (프린터가 2장씩 모아서 자동 커팅)
+            success, message = self.printer.print_individual_photos(file_paths)
+
+            if success:
+                self.status_var.set(message)
+                messagebox.showinfo("인쇄", f"{message}\n\n프린터가 2장씩 모아서 인쇄 후 자동 커팅합니다.")
+            else:
+                messagebox.showerror("오류", message)
+
+        except Exception as e:
+            messagebox.showerror("오류", f"인쇄 준비 실패: {e}")
 
     def run(self):
         """앱 실행"""

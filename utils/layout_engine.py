@@ -198,3 +198,53 @@ class LayoutEngine:
     def is_slot_filled(self, index):
         """특정 슬롯에 이미지가 있는지 확인"""
         return 0 <= index < NUM_SLOTS and self.slots[index] is not None
+
+    def prepare_individual_prints(self, output_dir, quality=95):
+        """
+        개별 사진 4장을 6x4 크기로 준비 (자동 커팅용)
+
+        Args:
+            output_dir: 임시 파일 저장 디렉토리
+            quality: JPEG 품질
+
+        Returns:
+            list: 저장된 파일 경로 목록
+        """
+        # 6x4인치 @ 300DPI = 1800 x 1200 픽셀
+        PRINT_WIDTH = 1800
+        PRINT_HEIGHT = 1200
+
+        os.makedirs(output_dir, exist_ok=True)
+        saved_files = []
+
+        for i, img in enumerate(self.slots):
+            if img is None:
+                continue
+
+            # 6x4 크기로 리사이즈 (fill 모드)
+            img_width, img_height = img.size
+            target_ratio = PRINT_WIDTH / PRINT_HEIGHT
+            img_ratio = img_width / img_height
+
+            if img_ratio > target_ratio:
+                # 이미지가 더 넓음 → 높이 기준
+                new_height = PRINT_HEIGHT
+                new_width = int(img_width * (PRINT_HEIGHT / img_height))
+            else:
+                # 이미지가 더 좁음 → 너비 기준
+                new_width = PRINT_WIDTH
+                new_height = int(img_height * (PRINT_WIDTH / img_width))
+
+            resized = img.resize((new_width, new_height), Image.LANCZOS)
+
+            # 중앙 크롭
+            left = (new_width - PRINT_WIDTH) // 2
+            top = (new_height - PRINT_HEIGHT) // 2
+            cropped = resized.crop((left, top, left + PRINT_WIDTH, top + PRINT_HEIGHT))
+
+            # 저장
+            file_path = os.path.join(output_dir, f"print_{i+1}.jpg")
+            cropped.save(file_path, 'JPEG', quality=quality, dpi=(DPI, DPI))
+            saved_files.append(file_path)
+
+        return saved_files
