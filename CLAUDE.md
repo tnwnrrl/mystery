@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-방탈출 체험존 통합 시스템 - 4개 모듈의 모노레포
+방탈출 체험존 통합 시스템 - 5개 모듈의 모노레포
 
 | 모듈 | 설명 | 플랫폼 |
 |------|------|--------|
@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `photo/` | Canon 100D 카메라 모니터링 + AI 변환 | macOS |
 | `photo_layout/` | DNP DS620 6컷 레이아웃 인쇄 | macOS |
 | `reserve/` | Reverse Audio Analyzer (역재생 분석) | macOS |
+| `tts_test/` | 대본 기반 TTS (F키 대사 재생) | macOS |
 
 ## Device Access
 
@@ -45,8 +46,8 @@ sshpass -p '1111' ssh kim@192.168.0.24
 │   Mac mini      │                 │    macOS        │
 │   afplay (MP3)  │                 │  photo/         │
 │   old_tv/mac.py │                 │  photo_layout/  │
-└─────────────────┘                 │  reserve/       │
-                                    └─────────────────┘
+│   tts_test/     │                 │  reserve/       │
+└─────────────────┘                 └─────────────────┘
 ```
 
 ## Network
@@ -119,6 +120,20 @@ Reverse Audio Analyzer
 
 ```bash
 cd reserve && python qt_scope.py
+```
+
+### tts_test/
+대본 기반 TTS 프로그램
+- F1~F10 펑션키로 대사 재생
+- 보조 모니터 자동 감지 및 전체화면
+- macOS `say` 명령어 + Yuna 음성
+- scripts.json으로 대본 관리
+
+```bash
+cd tts_test && python3.12 main.py
+
+# Mac mini 원격 배포
+sshpass -p '1111' scp tts_test/main.py tts_test/scripts.json kim@192.168.0.24:~/
 ```
 
 ## Home Assistant
