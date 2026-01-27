@@ -1,0 +1,420 @@
+#!/usr/bin/env python3
+"""
+6컷 레이아웃 앱
+DNP DS620 6x8" 용지에 2x3 그리드로 사진 6장 배치
+"""
+
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
+from PIL import Image, ImageTk
+import os
+import json
+from datetime import datetime
+
+from utils.layout_engine import LayoutEngine
+from utils.printer import MacPrinter
+
+
+class LayoutApp:
+    """4컷 레이아웃 메인 앱"""
+
+    NUM_SLOTS = 4
+
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("4컷 레이아웃 - DNP DS620")
+        self.root.geometry("1100x900")
+        self.root.resizable(False, False)
+
+        # 엔진 및 프린터
+        self.engine = LayoutEngine(fit_mode='fill')
+        self.printer = MacPrinter()
+
+        # 설정 로드
+        self.config = self._load_config()
+        self.output_dir = self.config.get('output_dir', 'output')
+        os.makedirs(self.output_dir, exist_ok=True)
+
+        # 슬롯 버튼 참조
+        self.slot_buttons = []
+        self.slot_labels = []
+        self.slot_paths = [None] * self.NUM_SLOTS
+
+        # 미리보기 이미지 참조 (GC 방지)
+        self.preview_photo = None
+
+        # fit 모드 변수
+        self.fit_mode_var = tk.StringVar(value='fill')
+
+        self._setup_ui()
+        self._update_preview()
+
+    def _load_config(self):
+        """설정 파일 로드"""
+        config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r') as f:
+                    return json.load(f)
+            except:
+                pass
+        return {}
+
+    def _setup_ui(self):
+        """UI 구성"""
+        main_frame = ttk.Frame(self.root, padding=10)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # 좌측: 슬롯 선택 영역
+        left_frame = ttk.LabelFrame(main_frame, text="이미지 선택", padding=10)
+        left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
+
+        self._create_slot_buttons(left_frame)
+
+        # 전체 비우기 버튼
+        ttk.Button(
+            left_frame,
+            text="전체 비우기",
+            command=self._clear_all
+        ).pack(pady=(20, 0), fill=tk.X)
+
+        # 폴더에서 6장 로드 버튼
+        ttk.Button(
+            left_frame,
+            text="폴더에서 로드",
+            command=self._load_from_folder
+        ).pack(pady=(5, 0), fill=tk.X)
+
+        # 자동 채우기 버튼
+        ttk.Button(
+            left_frame,
+            text="빈 슬롯 자동 채우기",
+            command=self._on_auto_fill_click
+        ).pack(pady=(5, 0), fill=tk.X)
+
+        # 우측: 미리보기 및 액션
+        right_frame = ttk.Frame(main_frame)
+        right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        # 미리보기 캔버스
+        preview_label = ttk.Label(right_frame, text="미리보기 (8x6\")")
+        preview_label.pack()
+
+        # 720x540 미리보기 (2400x1800의 0.3배, 가로 방향)
+        self.preview_canvas = tk.Canvas(
+            right_frame,
+            width=720,
+            height=540,
+            bg='white',
+            relief='sunken',
+            bd=2
+        )
+        self.preview_canvas.pack(pady=10)
+
+        # 모드 선택
+        mode_frame = ttk.Frame(right_frame)
+        mode_frame.pack(pady=5)
+
+        ttk.Label(mode_frame, text="맞춤 모드:").pack(side=tk.LEFT, padx=(0, 10))
+
+        ttk.Radiobutton(
+            mode_frame,
+            text="채우기 (크롭)",
+            variable=self.fit_mode_var,
+            value='fill',
+            command=self._on_mode_change
+        ).pack(side=tk.LEFT, padx=5)
+
+        ttk.Radiobutton(
+            mode_frame,
+            text="맞추기 (여백)",
+            variable=self.fit_mode_var,
+            value='fit',
+            command=self._on_mode_change
+        ).pack(side=tk.LEFT, padx=5)
+
+        # 액션 버튼
+        action_frame = ttk.Frame(right_frame)
+        action_frame.pack(pady=20)
+
+        ttk.Button(
+            action_frame,
+            text="저장",
+            command=self._save_layout,
+            width=15
+        ).pack(side=tk.LEFT, padx=10)
+
+        ttk.Button(
+            action_frame,
+            text="인쇄",
+            command=self._print_layout,
+            width=15
+        ).pack(side=tk.LEFT, padx=10)
+
+        # 상태 표시
+        self.status_var = tk.StringVar(value="이미지를 선택하세요")
+        status_label = ttk.Label(
+            right_frame,
+            textvariable=self.status_var,
+            foreground='gray'
+        )
+        status_label.pack(pady=10)
+
+    def _create_slot_buttons(self, parent):
+        """4개 슬롯 버튼 생성"""
+        grid_frame = ttk.Frame(parent)
+        grid_frame.pack()
+
+        for i in range(self.NUM_SLOTS):
+            row = i // 2
+            col = i % 2
+
+            slot_frame = ttk.Frame(grid_frame)
+            slot_frame.grid(row=row, column=col, padx=5, pady=5)
+
+            # 썸네일 버튼 (더 크게)
+            btn = tk.Button(
+                slot_frame,
+                text=f"{i+1}",
+                width=18,
+                height=8,
+                bg='#f0f0f0',
+                font=('Arial', 14),
+                command=lambda idx=i: self._select_image(idx)
+            )
+            btn.pack()
+
+            # 파일명 라벨
+            label = ttk.Label(slot_frame, text="(비어있음)", width=20)
+            label.pack()
+
+            self.slot_buttons.append(btn)
+            self.slot_labels.append(label)
+
+    def _select_image(self, index):
+        """슬롯에 이미지 선택"""
+        filetypes = [
+            ("이미지 파일", "*.jpg *.jpeg *.png *.bmp"),
+            ("JPEG", "*.jpg *.jpeg"),
+            ("PNG", "*.png"),
+            ("모든 파일", "*.*")
+        ]
+
+        path = filedialog.askopenfilename(
+            title=f"슬롯 {index+1} 이미지 선택",
+            filetypes=filetypes
+        )
+
+        if path:
+            self._load_image_to_slot(index, path)
+
+    def _load_image_to_slot(self, index, path):
+        """슬롯에 이미지 로드"""
+        if self.engine.load_image(index, path):
+            self.slot_paths[index] = path
+            filename = os.path.basename(path)
+
+            # 라벨 업데이트 (파일명 15자 제한)
+            display_name = filename[:15] + "..." if len(filename) > 15 else filename
+            self.slot_labels[index].config(text=display_name)
+
+            # 버튼 색상 변경
+            self.slot_buttons[index].config(bg='#90EE90')  # 연녹색
+
+            self._update_preview()
+            self._update_status()
+        else:
+            messagebox.showerror("오류", f"이미지를 로드할 수 없습니다:\n{path}")
+
+    def _clear_slot(self, index):
+        """슬롯 비우기"""
+        self.engine.clear_image(index)
+        self.slot_paths[index] = None
+        self.slot_labels[index].config(text="(비어있음)")
+        self.slot_buttons[index].config(bg='#f0f0f0')
+        self._update_preview()
+        self._update_status()
+
+    def _clear_all(self):
+        """모든 슬롯 비우기"""
+        for i in range(self.NUM_SLOTS):
+            self._clear_slot(i)
+
+    def _load_from_folder(self):
+        """폴더에서 이미지 로드 (4장 미만이면 마지막 사진으로 채움)"""
+        folder = filedialog.askdirectory(title="이미지 폴더 선택")
+        if not folder:
+            return
+
+        # 이미지 파일 검색
+        extensions = ('.jpg', '.jpeg', '.png', '.bmp')
+        images = sorted([
+            f for f in os.listdir(folder)
+            if f.lower().endswith(extensions)
+        ])
+
+        if not images:
+            messagebox.showinfo("알림", "폴더에 이미지가 없습니다.")
+            return
+
+        # 최대 4개 로드
+        self._clear_all()
+        for i, img_name in enumerate(images[:self.NUM_SLOTS]):
+            path = os.path.join(folder, img_name)
+            self._load_image_to_slot(i, path)
+
+        # 4장 미만이면 마지막 사진으로 자동 채우기
+        loaded_count = min(len(images), self.NUM_SLOTS)
+        if loaded_count < self.NUM_SLOTS:
+            self._auto_fill_empty_slots()
+            self.status_var.set(f"{loaded_count}장 로드 → {self.NUM_SLOTS}장으로 자동 채움")
+        else:
+            self.status_var.set(f"{loaded_count}개 이미지 로드됨")
+
+    def _auto_fill_empty_slots(self):
+        """빈 슬롯을 마지막 유효 이미지로 채우기"""
+        # 마지막 유효 이미지 찾기
+        last_valid_path = None
+        last_valid_index = -1
+
+        for i in range(self.NUM_SLOTS):
+            if self.slot_paths[i] is not None:
+                last_valid_path = self.slot_paths[i]
+                last_valid_index = i
+
+        if last_valid_path is None:
+            return  # 이미지가 하나도 없음
+
+        # 빈 슬롯 채우기
+        filled_count = 0
+        for i in range(self.NUM_SLOTS):
+            if self.slot_paths[i] is None:
+                self._load_image_to_slot(i, last_valid_path)
+                # 버튼 색상을 다르게 표시 (자동 채워진 슬롯)
+                self.slot_buttons[i].config(bg='#87CEEB')  # 하늘색
+                filled_count += 1
+
+        return filled_count
+
+    def _on_auto_fill_click(self):
+        """자동 채우기 버튼 클릭"""
+        # 유효한 이미지가 있는지 확인
+        has_image = any(p is not None for p in self.slot_paths)
+        if not has_image:
+            messagebox.showwarning("경고", "최소 1개 이상의 이미지를 먼저 선택하세요.")
+            return
+
+        # 이미 6개 다 채워져 있는지 확인
+        empty_count = sum(1 for p in self.slot_paths if p is None)
+        if empty_count == 0:
+            messagebox.showinfo("알림", "모든 슬롯이 이미 채워져 있습니다.")
+            return
+
+        filled = self._auto_fill_empty_slots()
+        self.status_var.set(f"{filled}개 슬롯 자동 채움 완료")
+
+    def _on_mode_change(self):
+        """fill/fit 모드 변경"""
+        self.engine.set_fit_mode(self.fit_mode_var.get())
+        self._update_preview()
+
+    def _update_preview(self):
+        """미리보기 업데이트"""
+        preview = self.engine.generate_preview(scale=0.3)
+        self.preview_photo = ImageTk.PhotoImage(preview)
+
+        self.preview_canvas.delete("all")
+        self.preview_canvas.create_image(
+            360, 270,  # 중앙
+            image=self.preview_photo,
+            anchor=tk.CENTER
+        )
+
+        # 그리드 선 그리기
+        self._draw_grid_lines()
+
+    def _draw_grid_lines(self):
+        """미리보기에 그리드 선 표시 (2x2, 가로 방향)"""
+        # 세로선 (중앙) - 720/2 = 360
+        self.preview_canvas.create_line(360, 0, 360, 540, fill='#cccccc', dash=(2, 2))
+
+        # 가로선 (중앙) - 540/2 = 270
+        self.preview_canvas.create_line(0, 270, 720, 270, fill='#cccccc', dash=(2, 2))
+
+    def _update_status(self):
+        """상태 표시 업데이트"""
+        count = self.engine.get_slot_count()
+        if count == 0:
+            self.status_var.set("이미지를 선택하세요")
+        elif count < self.NUM_SLOTS:
+            self.status_var.set(f"{count}/{self.NUM_SLOTS} 이미지 선택됨")
+        else:
+            self.status_var.set(f"{self.NUM_SLOTS}개 이미지 준비됨 - 저장 또는 인쇄 가능")
+
+    def _save_layout(self):
+        """레이아웃 저장"""
+        if self.engine.get_slot_count() == 0:
+            messagebox.showwarning("경고", "최소 1개 이상의 이미지를 선택하세요.")
+            return
+
+        # 기본 파일명 생성
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_name = f"layout_{timestamp}.jpg"
+
+        path = filedialog.asksaveasfilename(
+            title="레이아웃 저장",
+            defaultextension=".jpg",
+            initialdir=self.output_dir,
+            initialfile=default_name,
+            filetypes=[("JPEG", "*.jpg"), ("모든 파일", "*.*")]
+        )
+
+        if path:
+            if self.engine.save_layout(path):
+                messagebox.showinfo("완료", f"저장 완료:\n{path}")
+                self.status_var.set(f"저장됨: {os.path.basename(path)}")
+            else:
+                messagebox.showerror("오류", "저장에 실패했습니다.")
+
+    def _print_layout(self):
+        """개별 사진 인쇄 (6x4 크기, 자동 커팅)"""
+        if self.engine.get_slot_count() == 0:
+            messagebox.showwarning("경고", "최소 1개 이상의 이미지를 선택하세요.")
+            return
+
+        # 임시 디렉토리에 개별 사진 준비
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        temp_dir = os.path.join(self.output_dir, f"print_{timestamp}")
+
+        try:
+            # 개별 사진 6x4 크기로 준비
+            file_paths = self.engine.prepare_individual_prints(temp_dir)
+
+            if not file_paths:
+                messagebox.showerror("오류", "인쇄용 파일 생성에 실패했습니다.")
+                return
+
+            # 개별 사진 인쇄 (프린터가 2장씩 모아서 자동 커팅)
+            success, message = self.printer.print_individual_photos(file_paths)
+
+            if success:
+                self.status_var.set(message)
+                messagebox.showinfo("인쇄", f"{message}\n\n프린터가 2장씩 모아서 인쇄 후 자동 커팅합니다.")
+            else:
+                messagebox.showerror("오류", message)
+
+        except Exception as e:
+            messagebox.showerror("오류", f"인쇄 준비 실패: {e}")
+
+    def run(self):
+        """앱 실행"""
+        self.root.mainloop()
+
+
+def main():
+    app = LayoutApp()
+    app.run()
+
+
+if __name__ == "__main__":
+    main()
