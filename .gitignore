@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+*.egg-info/
+
+# Build
+dist/
+build/
+*.spec
+
+# Secrets
+secrets.h
+*.env
+.env.*
+config.json
+
+# macOS
+.DS_Store
+*.app
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Temporary
+*.tmp
+*.temp
+
+# Photo processing
+downloaded_photos/
+processed_photos/
+processed_files.json
