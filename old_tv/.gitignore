@@ -1,0 +1,31 @@
+# Secrets
+secrets.h
+morse/secrets.h
+*.env
+
+# Build artifacts
+morse/build/
+build/
+*.bin
+*.elf
+*.map
+
+# Virtual environment
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Media files (large)
+videos/
+*.mp4
+*.mp3
+*.wav
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
