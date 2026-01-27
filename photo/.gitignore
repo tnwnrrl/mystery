@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Environment variables
+.env
+*.env
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Project specific
+config.json         # 사용자별 경로 설정 포함
+config.json.backup
+test_images/
+output/
+archive/
+gui.log
+processed_files.json
+downloaded_photos/
+processed_photos/
+
+# Tools
+.serena/
