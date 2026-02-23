@@ -17,7 +17,7 @@ NUM_SLOTS = 4
 DPI = 300
 
 # 프린터 오프셋 보정
-PRINTER_MARGIN = 90   # 프린터 왼쪽 여백 보정 (조절 가능)
+PRINTER_MARGIN = 80   # 프린터 왼쪽 여백 보정 (조절 가능)
 COLUMN_GAP = 30       # 열 간격 (프린터 하단 여백과 동일하게)
 
 CELL_WIDTH = (CANVAS_WIDTH - PRINTER_MARGIN - COLUMN_GAP) // 2   # 660px
