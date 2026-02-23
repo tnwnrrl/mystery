@@ -4,19 +4,23 @@ DNP DS620 5x7" 용지에 2x2 그리드로 사진 4장 배치
 절반 커팅하여 5x3.5" 카드 2장 출력
 """
 
-from PIL import Image
+from PIL import Image, ImageOps
 import os
 
 
 # 상수 정의 (5x7" @ 300DPI, 세로 방향)
 CANVAS_WIDTH = 1500
 CANVAS_HEIGHT = 2100
-CELL_WIDTH = 750
-CELL_HEIGHT = 1050
 COLUMNS = 2
 ROWS = 2
 NUM_SLOTS = 4
 DPI = 300
+
+# 프린터 오프셋 보정 (DNP DS620이 왼쪽에 ~45px 여백 생성 → 오른쪽에도 동일하게)
+PRINTER_MARGIN = 90   # 프린터 왼쪽 여백 추정치 (조절 가능)
+
+CELL_WIDTH = (CANVAS_WIDTH - PRINTER_MARGIN) // 2    # 727px
+CELL_HEIGHT = CANVAS_HEIGHT // 2                     # 1050px
 
 
 class LayoutEngine:
@@ -32,11 +36,11 @@ class LayoutEngine:
         self.slot_positions = self._calculate_positions()
 
     def _calculate_positions(self):
-        """각 슬롯의 (x, y) 위치 계산"""
+        """각 슬롯의 (x, y) 위치 계산 (프린터 왼쪽 여백 보정)"""
         positions = []
         for row in range(ROWS):
             for col in range(COLUMNS):
-                x = col * CELL_WIDTH
+                x = PRINTER_MARGIN + col * CELL_WIDTH
                 y = row * CELL_HEIGHT
                 positions.append((x, y))
         return positions
@@ -57,8 +61,13 @@ class LayoutEngine:
 
         try:
             img = Image.open(path)
+            # EXIF 회전 정보 적용
+            img = ImageOps.exif_transpose(img)
             if img.mode != 'RGB':
                 img = img.convert('RGB')
+            # 가로 사진 → 세로 셀에 맞게 자동 회전 (반시계 90°)
+            if img.width > img.height:
+                img = img.transpose(Image.ROTATE_90)
             self.slots[index] = img
             return True
         except Exception as e:
@@ -84,13 +93,13 @@ class LayoutEngine:
 
     def _fit_image_to_cell(self, img):
         """
-        이미지를 셀 크기에 맞춤
+        이미지를 셀 크기에 맞춤 (750x1050)
 
         Args:
-            img: PIL Image
+            img: PIL Image (가로 사진은 load_image에서 이미 회전됨)
 
         Returns:
-            PIL Image: 셀 크기에 맞춰진 이미지 (900x800)
+            PIL Image: 셀 크기에 맞춰진 이미지
         """
         img_width, img_height = img.size
         cell_ratio = CELL_WIDTH / CELL_HEIGHT
@@ -204,8 +213,8 @@ class LayoutEngine:
         """
         레이아웃을 상/하 절반으로 나누어 5x3.5" 카드 2장 준비 (절반 커팅용)
 
-        상단 이미지 (1500x1050): 슬롯 1, 2
-        하단 이미지 (1500x1050): 슬롯 3, 4
+        PPD 실제 용지 크기(371.52x261.12pt = 1548x1088px @300DPI)에 맞춰
+        리사이즈하여 CUPS 스케일링 없이 1:1 인쇄
 
         Args:
             output_dir: 임시 파일 저장 디렉토리
@@ -214,6 +223,10 @@ class LayoutEngine:
         Returns:
             list: 저장된 파일 경로 목록 (상단, 하단)
         """
+        # PPD dnp5x3.5 실제 크기 (371.52 x 261.12 points → pixels @300DPI)
+        PPD_WIDTH = 1548
+        PPD_HEIGHT = 1088
+
         HALF_WIDTH = CANVAS_WIDTH    # 1500
         HALF_HEIGHT = CANVAS_HEIGHT // 2  # 1050
 
@@ -222,14 +235,16 @@ class LayoutEngine:
 
         canvas = self.generate_layout()
 
-        # 상단 (슬롯 1, 2)
+        # 상단 (슬롯 1, 2) → PPD 크기로 리사이즈
         top_half = canvas.crop((0, 0, HALF_WIDTH, HALF_HEIGHT))
+        top_half = top_half.resize((PPD_WIDTH, PPD_HEIGHT), Image.LANCZOS)
         top_path = os.path.join(output_dir, "print_top.jpg")
         top_half.save(top_path, 'JPEG', quality=quality, dpi=(DPI, DPI))
         saved_files.append(top_path)
 
-        # 하단 (슬롯 3, 4)
+        # 하단 (슬롯 3, 4) → PPD 크기로 리사이즈
         bottom_half = canvas.crop((0, HALF_HEIGHT, HALF_WIDTH, CANVAS_HEIGHT))
+        bottom_half = bottom_half.resize((PPD_WIDTH, PPD_HEIGHT), Image.LANCZOS)
         bottom_path = os.path.join(output_dir, "print_bottom.jpg")
         bottom_half.save(bottom_path, 'JPEG', quality=quality, dpi=(DPI, DPI))
         saved_files.append(bottom_path)

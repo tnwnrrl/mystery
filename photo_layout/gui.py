@@ -7,7 +7,7 @@ DNP DS620 5x7" 용지에 2x2 그리드로 사진 4장 배치
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw
 import os
 import json
 from datetime import datetime
@@ -24,7 +24,7 @@ class LayoutApp:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("4컷 레이아웃 - DNP DS620 (5x7\")")
-        self.root.geometry("1000x950")
+        self.root.geometry("950x800")
         self.root.resizable(False, False)
 
         # 엔진 및 프린터
@@ -101,16 +101,9 @@ class LayoutApp:
         preview_label = ttk.Label(right_frame, text="미리보기 (5x7\")")
         preview_label.pack()
 
-        # 450x630 미리보기 (1500x2100의 0.3배, 세로 방향)
-        self.preview_canvas = tk.Canvas(
-            right_frame,
-            width=450,
-            height=630,
-            bg='white',
-            relief='sunken',
-            bd=2
-        )
-        self.preview_canvas.pack(pady=10)
+        # 375x525 미리보기 (1500x2100의 0.25배, 세로 방향)
+        self.preview_label = ttk.Label(right_frame)
+        self.preview_label.pack(pady=10)
 
         # 모드 선택
         mode_frame = ttk.Frame(right_frame)
@@ -321,26 +314,16 @@ class LayoutApp:
 
     def _update_preview(self):
         """미리보기 업데이트"""
-        preview = self.engine.generate_preview(scale=0.3)
+        preview = self.engine.generate_preview(scale=0.25)
+
+        # 커팅 라인을 이미지에 직접 그리기
+        draw = ImageDraw.Draw(preview)
+        y_cut = preview.height // 2
+        for x in range(0, preview.width, 6):
+            draw.line([(x, y_cut), (min(x + 4, preview.width), y_cut)], fill='#ff6666', width=1)
+
         self.preview_photo = ImageTk.PhotoImage(preview)
-
-        self.preview_canvas.delete("all")
-        self.preview_canvas.create_image(
-            225, 315,  # 중앙
-            image=self.preview_photo,
-            anchor=tk.CENTER
-        )
-
-        # 그리드 선 그리기
-        self._draw_grid_lines()
-
-    def _draw_grid_lines(self):
-        """미리보기에 그리드 선 표시 (2x2, 세로 방향)"""
-        # 세로선 (중앙) - 450/2 = 225
-        self.preview_canvas.create_line(225, 0, 225, 630, fill='#cccccc', dash=(2, 2))
-
-        # 가로선 (중앙, 커팅 라인) - 630/2 = 315
-        self.preview_canvas.create_line(0, 315, 450, 315, fill='#ff6666', dash=(4, 2))
+        self.preview_label.config(image=self.preview_photo)
 
     def _update_status(self):
         """상태 표시 업데이트"""
@@ -378,12 +361,11 @@ class LayoutApp:
                 messagebox.showerror("오류", "저장에 실패했습니다.")
 
     def _print_layout(self):
-        """절반 커팅 인쇄 (5x3.5" 카드 2장)"""
+        """5x3.5 × 2장 인쇄 (프린터 자동 절반 커팅)"""
         if self.engine.get_slot_count() == 0:
             messagebox.showwarning("경고", "최소 1개 이상의 이미지를 선택하세요.")
             return
 
-        # 임시 디렉토리에 절반 이미지 준비
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         temp_dir = os.path.join(self.output_dir, f"print_{timestamp}")
 
@@ -395,12 +377,12 @@ class LayoutApp:
                 messagebox.showerror("오류", "인쇄용 파일 생성에 실패했습니다.")
                 return
 
-            # 절반 이미지 인쇄 (dnp3.5x5, 절반 커팅)
+            # dnp5x3.5 × 2장 → 프린터가 5x7 용지에 인쇄 후 자동 커팅
             success, message = self.printer.print_individual_photos(file_paths)
 
             if success:
                 self.status_var.set(message)
-                messagebox.showinfo("인쇄", f"{message}\n\n5x7\" 용지 1장, 절반 커팅하여 5x3.5\" 카드 2장 출력")
+                messagebox.showinfo("인쇄", f"{message}\n\n5x3.5\" × 2장 (5x7\" 용지 자동 커팅)")
             else:
                 messagebox.showerror("오류", message)
 

@@ -214,8 +214,9 @@ class MacPrinter:
                 cmd = [
                     'lp',
                     '-d', self.printer_name,
-                    '-o', 'PageSize=dnp3.5x5',  # 3.5x5인치 (절반 커팅)
+                    '-o', 'PageSize=dnp5x3.5',  # 5x3.5인치 (절반 커팅)
                     '-o', f'Cutter={self.DNP_CUTTER}',
+                    '-o', 'fit-to-page',         # 용지 전체에 맞춤 (여백 제거)
                     '-n', str(copies),
                     path
                 ]
