@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-6컷 레이아웃 앱
-DNP DS620 6x8" 용지에 2x3 그리드로 사진 6장 배치
+4컷 레이아웃 앱
+DNP DS620 5x7" 용지에 2x2 그리드로 사진 4장 배치
+절반 커팅하여 5x3.5" 카드 2장 출력
 """
 
 import tkinter as tk
@@ -22,8 +23,8 @@ class LayoutApp:
 
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("4컷 레이아웃 - DNP DS620")
-        self.root.geometry("1100x900")
+        self.root.title("4컷 레이아웃 - DNP DS620 (5x7\")")
+        self.root.geometry("1000x950")
         self.root.resizable(False, False)
 
         # 엔진 및 프린터
@@ -97,14 +98,14 @@ class LayoutApp:
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
         # 미리보기 캔버스
-        preview_label = ttk.Label(right_frame, text="미리보기 (8x6\")")
+        preview_label = ttk.Label(right_frame, text="미리보기 (5x7\")")
         preview_label.pack()
 
-        # 720x540 미리보기 (2400x1800의 0.3배, 가로 방향)
+        # 450x630 미리보기 (1500x2100의 0.3배, 세로 방향)
         self.preview_canvas = tk.Canvas(
             right_frame,
-            width=720,
-            height=540,
+            width=450,
+            height=630,
             bg='white',
             relief='sunken',
             bd=2
@@ -325,7 +326,7 @@ class LayoutApp:
 
         self.preview_canvas.delete("all")
         self.preview_canvas.create_image(
-            360, 270,  # 중앙
+            225, 315,  # 중앙
             image=self.preview_photo,
             anchor=tk.CENTER
         )
@@ -334,12 +335,12 @@ class LayoutApp:
         self._draw_grid_lines()
 
     def _draw_grid_lines(self):
-        """미리보기에 그리드 선 표시 (2x2, 가로 방향)"""
-        # 세로선 (중앙) - 720/2 = 360
-        self.preview_canvas.create_line(360, 0, 360, 540, fill='#cccccc', dash=(2, 2))
+        """미리보기에 그리드 선 표시 (2x2, 세로 방향)"""
+        # 세로선 (중앙) - 450/2 = 225
+        self.preview_canvas.create_line(225, 0, 225, 630, fill='#cccccc', dash=(2, 2))
 
-        # 가로선 (중앙) - 540/2 = 270
-        self.preview_canvas.create_line(0, 270, 720, 270, fill='#cccccc', dash=(2, 2))
+        # 가로선 (중앙, 커팅 라인) - 630/2 = 315
+        self.preview_canvas.create_line(0, 315, 450, 315, fill='#ff6666', dash=(4, 2))
 
     def _update_status(self):
         """상태 표시 업데이트"""
@@ -377,29 +378,29 @@ class LayoutApp:
                 messagebox.showerror("오류", "저장에 실패했습니다.")
 
     def _print_layout(self):
-        """개별 사진 인쇄 (6x4 크기, 자동 커팅)"""
+        """절반 커팅 인쇄 (5x3.5" 카드 2장)"""
         if self.engine.get_slot_count() == 0:
             messagebox.showwarning("경고", "최소 1개 이상의 이미지를 선택하세요.")
             return
 
-        # 임시 디렉토리에 개별 사진 준비
+        # 임시 디렉토리에 절반 이미지 준비
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         temp_dir = os.path.join(self.output_dir, f"print_{timestamp}")
 
         try:
-            # 개별 사진 6x4 크기로 준비
-            file_paths = self.engine.prepare_individual_prints(temp_dir)
+            # 상/하 절반 이미지 준비
+            file_paths = self.engine.prepare_half_prints(temp_dir)
 
             if not file_paths:
                 messagebox.showerror("오류", "인쇄용 파일 생성에 실패했습니다.")
                 return
 
-            # 개별 사진 인쇄 (프린터가 2장씩 모아서 자동 커팅)
+            # 절반 이미지 인쇄 (dnp3.5x5, 절반 커팅)
             success, message = self.printer.print_individual_photos(file_paths)
 
             if success:
                 self.status_var.set(message)
-                messagebox.showinfo("인쇄", f"{message}\n\n프린터가 2장씩 모아서 인쇄 후 자동 커팅합니다.")
+                messagebox.showinfo("인쇄", f"{message}\n\n5x7\" 용지 1장, 절반 커팅하여 5x3.5\" 카드 2장 출력")
             else:
                 messagebox.showerror("오류", message)
 

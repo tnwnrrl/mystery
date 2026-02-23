@@ -12,7 +12,7 @@ class MacPrinter:
 
     # DNP DS620 프린터 옵션
     DNP_PRINTER_NAME = "Dai_Nippon_Printing_DP_DS620"
-    DNP_PAGE_SIZE = "dnp6x8"  # 6x8인치
+    DNP_PAGE_SIZE = "dnp5x7"  # 5x7인치
     DNP_CUTTER = "Normal"     # 자동 커팅
 
     def __init__(self, printer_name=None):
@@ -189,11 +189,11 @@ class MacPrinter:
 
     def print_individual_photos(self, file_paths, copies=1):
         """
-        개별 사진들을 6x4 크기로 인쇄 (자동 커팅)
-        프린터가 6x8 용지에 2장씩 모아서 인쇄하고 가운데서 커팅
+        5x3.5" 카드 2장 인쇄 (절반 커팅)
+        5x7 용지에 상/하 반씩 인쇄하고 가운데서 커팅
 
         Args:
-            file_paths: 이미지 파일 경로 목록
+            file_paths: 이미지 파일 경로 목록 (상단, 하단)
             copies: 각 사진 인쇄 매수
 
         Returns:
@@ -214,7 +214,7 @@ class MacPrinter:
                 cmd = [
                     'lp',
                     '-d', self.printer_name,
-                    '-o', 'PageSize=dnp6x4',  # 6x4인치 개별 사진
+                    '-o', 'PageSize=dnp3.5x5',  # 3.5x5인치 (절반 커팅)
                     '-o', f'Cutter={self.DNP_CUTTER}',
                     '-n', str(copies),
                     path
@@ -236,7 +236,7 @@ class MacPrinter:
                 errors.append(f"{os.path.basename(path)}: {e}")
 
         if success_count == len(file_paths):
-            return True, f"인쇄 완료: {success_count}장 (6x4, 자동커팅)"
+            return True, f"인쇄 완료: 5x3.5\" 카드 {success_count}장 (절반 커팅)"
         elif success_count > 0:
             return True, f"부분 완료: {success_count}/{len(file_paths)}장\n오류: {'; '.join(errors)}"
         else:

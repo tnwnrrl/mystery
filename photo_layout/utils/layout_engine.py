@@ -1,17 +1,18 @@
 """
 4컷 레이아웃 합성 엔진
-DNP DS620 6x8" 용지에 2x2 그리드로 사진 4장 배치
+DNP DS620 5x7" 용지에 2x2 그리드로 사진 4장 배치
+절반 커팅하여 5x3.5" 카드 2장 출력
 """
 
 from PIL import Image
 import os
 
 
-# 상수 정의 (8x6" @ 300DPI, 가로 방향)
-CANVAS_WIDTH = 2400
-CANVAS_HEIGHT = 1800
-CELL_WIDTH = 1200
-CELL_HEIGHT = 900
+# 상수 정의 (5x7" @ 300DPI, 세로 방향)
+CANVAS_WIDTH = 1500
+CANVAS_HEIGHT = 2100
+CELL_WIDTH = 750
+CELL_HEIGHT = 1050
 COLUMNS = 2
 ROWS = 2
 NUM_SLOTS = 4
@@ -45,7 +46,7 @@ class LayoutEngine:
         슬롯에 이미지 로드
 
         Args:
-            index: 슬롯 인덱스 (0-5)
+            index: 슬롯 인덱스 (0-3)
             path: 이미지 파일 경로
 
         Returns:
@@ -136,10 +137,10 @@ class LayoutEngine:
 
     def generate_layout(self):
         """
-        6컷 레이아웃 생성
+        4컷 레이아웃 생성
 
         Returns:
-            PIL Image: 1800x2400 캔버스
+            PIL Image: 1500x2100 캔버스
         """
         canvas = Image.new('RGB', (CANVAS_WIDTH, CANVAS_HEIGHT), (255, 255, 255))
 
@@ -153,12 +154,12 @@ class LayoutEngine:
 
         return canvas
 
-    def generate_preview(self, scale=0.25):
+    def generate_preview(self, scale=0.3):
         """
         미리보기용 축소 이미지 생성
 
         Args:
-            scale: 축소 비율 (기본 0.25 → 450x600)
+            scale: 축소 비율 (기본 0.3 → 450x630)
 
         Returns:
             PIL Image: 축소된 캔버스
@@ -199,52 +200,38 @@ class LayoutEngine:
         """특정 슬롯에 이미지가 있는지 확인"""
         return 0 <= index < NUM_SLOTS and self.slots[index] is not None
 
-    def prepare_individual_prints(self, output_dir, quality=95):
+    def prepare_half_prints(self, output_dir, quality=95):
         """
-        개별 사진 4장을 6x4 크기로 준비 (자동 커팅용)
+        레이아웃을 상/하 절반으로 나누어 5x3.5" 카드 2장 준비 (절반 커팅용)
+
+        상단 이미지 (1500x1050): 슬롯 1, 2
+        하단 이미지 (1500x1050): 슬롯 3, 4
 
         Args:
             output_dir: 임시 파일 저장 디렉토리
             quality: JPEG 품질
 
         Returns:
-            list: 저장된 파일 경로 목록
+            list: 저장된 파일 경로 목록 (상단, 하단)
         """
-        # 6x4인치 @ 300DPI = 1800 x 1200 픽셀
-        PRINT_WIDTH = 1800
-        PRINT_HEIGHT = 1200
+        HALF_WIDTH = CANVAS_WIDTH    # 1500
+        HALF_HEIGHT = CANVAS_HEIGHT // 2  # 1050
 
         os.makedirs(output_dir, exist_ok=True)
         saved_files = []
 
-        for i, img in enumerate(self.slots):
-            if img is None:
-                continue
+        canvas = self.generate_layout()
 
-            # 6x4 크기로 리사이즈 (fill 모드)
-            img_width, img_height = img.size
-            target_ratio = PRINT_WIDTH / PRINT_HEIGHT
-            img_ratio = img_width / img_height
+        # 상단 (슬롯 1, 2)
+        top_half = canvas.crop((0, 0, HALF_WIDTH, HALF_HEIGHT))
+        top_path = os.path.join(output_dir, "print_top.jpg")
+        top_half.save(top_path, 'JPEG', quality=quality, dpi=(DPI, DPI))
+        saved_files.append(top_path)
 
-            if img_ratio > target_ratio:
-                # 이미지가 더 넓음 → 높이 기준
-                new_height = PRINT_HEIGHT
-                new_width = int(img_width * (PRINT_HEIGHT / img_height))
-            else:
-                # 이미지가 더 좁음 → 너비 기준
-                new_width = PRINT_WIDTH
-                new_height = int(img_height * (PRINT_WIDTH / img_width))
-
-            resized = img.resize((new_width, new_height), Image.LANCZOS)
-
-            # 중앙 크롭
-            left = (new_width - PRINT_WIDTH) // 2
-            top = (new_height - PRINT_HEIGHT) // 2
-            cropped = resized.crop((left, top, left + PRINT_WIDTH, top + PRINT_HEIGHT))
-
-            # 저장
-            file_path = os.path.join(output_dir, f"print_{i+1}.jpg")
-            cropped.save(file_path, 'JPEG', quality=quality, dpi=(DPI, DPI))
-            saved_files.append(file_path)
+        # 하단 (슬롯 3, 4)
+        bottom_half = canvas.crop((0, HALF_HEIGHT, HALF_WIDTH, CANVAS_HEIGHT))
+        bottom_path = os.path.join(output_dir, "print_bottom.jpg")
+        bottom_half.save(bottom_path, 'JPEG', quality=quality, dpi=(DPI, DPI))
+        saved_files.append(bottom_path)
 
         return saved_files

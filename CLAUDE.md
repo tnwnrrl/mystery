@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |------|------|--------|
 | `old_tv/` | RPi + ESP32 MQTT 멀티미디어 (영상/MP3/모스) | RPi, macOS |
 | `photo/` | Canon 100D 카메라 모니터링 + AI 변환 | macOS |
-| `photo_layout/` | DNP DS620 6컷 레이아웃 인쇄 | macOS |
+| `photo_layout/` | DNP DS620 4컷 레이아웃 인쇄 (5x7", 절반 커팅) | macOS |
 | `reserve/` | Reverse Audio Analyzer (역재생 분석) | macOS |
 | `tts_test/` | 대본 기반 TTS (F키 대사 재생) | macOS |
 
@@ -103,10 +103,10 @@ cd photo && ./start.command
 ```
 
 ### photo_layout/
-DNP DS620 6컷 레이아웃 앱
-- 6x8" 용지에 2x3 그리드 (1800x2400px)
+DNP DS620 4컷 레이아웃 앱
+- 5x7" 용지에 2x2 그리드 (1500x2100px)
+- 절반 커팅하여 5x3.5" 카드 2장 출력
 - fill/fit 모드 지원
-- macOS Preview 연동 인쇄
 
 ```bash
 cd photo_layout && ./start.command

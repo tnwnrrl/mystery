@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DNP DS620 6컷 레이아웃 앱. 6x8" 용지에 2x3 그리드로 사진 6장 배치. tkinter GUI 제공.
+DNP DS620 4컷 레이아웃 앱. 5x7" 용지에 2x2 그리드로 사진 4장 배치. 절반 커팅하여 5x3.5" 카드 2장 출력. tkinter GUI 제공.
 
 ## Commands
 
@@ -19,7 +19,7 @@ python3 gui.py
 python3 -c "
 from utils.layout_engine import LayoutEngine
 engine = LayoutEngine()
-print(f'캔버스: {engine.generate_layout().size}')  # (1800, 2400)
+print(f'캔버스: {engine.generate_layout().size}')  # (1500, 2100)
 "
 
 # 의존성 설치
@@ -32,34 +32,36 @@ pip install -r requirements.txt
 이미지 선택/폴더 로드
     ↓
 LayoutEngine.load_image(index, path)
-    ↓ 슬롯 0-5에 저장
+    ↓ 슬롯 0-3에 저장
     ↓
-[6장 미만?] → _auto_fill_empty_slots() → 마지막 사진으로 채움
+[4장 미만?] → _auto_fill_empty_slots() → 마지막 사진으로 채움
     ↓
 LayoutEngine._fit_image_to_cell(img)
     ↓ fill (크롭) 또는 fit (여백) 모드
     ↓
 LayoutEngine.generate_layout()
-    ↓ 1800x2400 캔버스에 합성
+    ↓ 1500x2100 캔버스에 합성
     ↓
-MacPrinter.print_image_directly(path)
-    ↓ Preview 앱으로 열기 → 인쇄
+LayoutEngine.prepare_half_prints()
+    ↓ 상단(1500x1050) + 하단(1500x1050) 분할
+    ↓
+MacPrinter.print_individual_photos(paths)
+    ↓ dnp3.5x5 × 2장 → 5x7 용지 1장, 절반 커팅
 ```
 
-### 픽셀 계산 (6x8" @ 300DPI)
+### 픽셀 계산 (5x7" @ 300DPI, 세로)
 
 ```
-전체 캔버스: 1800 x 2400 pixels
-셀 크기: 900 x 800 pixels
+전체 캔버스: 1500 x 2100 pixels
+셀 크기: 750 x 1050 pixels
 
-┌─────────┬─────────┐
-│ 슬롯0   │ 슬롯1   │  y=0
-├─────────┼─────────┤
-│ 슬롯2   │ 슬롯3   │  y=800
-├─────────┼─────────┤
-│ 슬롯4   │ 슬롯5   │  y=1600
-└─────────┴─────────┘
-  x=0       x=900
+       5" (1500px)
+┌──────────┬──────────┐ ─┐
+│  슬롯0   │  슬롯1   │  │ 3.5" (1050px)
+╞══════════╪══════════╡ ─┤ ✂️ 커팅
+│  슬롯2   │  슬롯3   │  │ 3.5" (1050px)
+└──────────┴──────────┘ ─┘
+  2.5"        2.5"
 ```
 
 ### Core Files
@@ -67,8 +69,8 @@ MacPrinter.print_image_directly(path)
 | 파일 | 역할 |
 |------|------|
 | `gui.py` | 메인 진입점. tkinter GUI, 자동 채우기 기능 |
-| `utils/layout_engine.py` | `LayoutEngine` - 6컷 합성 엔진 |
-| `utils/printer.py` | `MacPrinter` - macOS 프린터 연동 |
+| `utils/layout_engine.py` | `LayoutEngine` - 4컷 합성 엔진, 절반 분할 |
+| `utils/printer.py` | `MacPrinter` - macOS 프린터 연동 (dnp3.5x5) |
 
 ## Fit Modes
 
@@ -81,5 +83,6 @@ MacPrinter.print_image_directly(path)
 
 - **macOS only**: `open -a Preview` 및 `lpstat` 명령 사용
 - **JPG 출력**: 300 DPI 메타데이터 포함
-- **6x8" 전용**: DNP DS620 6x8" 용지 기준 설계
+- **5x7" 전용**: DNP DS620 5x7" 용지 기준 설계
+- **절반 커팅**: 5x3.5" 카드 2장 출력
 - **Pillow 필수**: 이미지 처리에 PIL 사용
