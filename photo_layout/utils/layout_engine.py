@@ -16,11 +16,12 @@ ROWS = 2
 NUM_SLOTS = 4
 DPI = 300
 
-# 프린터 오프셋 보정 (DNP DS620이 왼쪽에 ~45px 여백 생성 → 오른쪽에도 동일하게)
-PRINTER_MARGIN = 90   # 프린터 왼쪽 여백 추정치 (조절 가능)
+# 프린터 오프셋 보정
+PRINTER_MARGIN = 90   # 프린터 왼쪽 여백 보정 (조절 가능)
+COLUMN_GAP = 30       # 열 간격 (프린터 하단 여백과 동일하게)
 
-CELL_WIDTH = (CANVAS_WIDTH - PRINTER_MARGIN) // 2    # 727px
-CELL_HEIGHT = CANVAS_HEIGHT // 2                     # 1050px
+CELL_WIDTH = (CANVAS_WIDTH - PRINTER_MARGIN - COLUMN_GAP) // 2   # 660px
+CELL_HEIGHT = CANVAS_HEIGHT // 2                                  # 1050px
 
 
 class LayoutEngine:
@@ -40,7 +41,7 @@ class LayoutEngine:
         positions = []
         for row in range(ROWS):
             for col in range(COLUMNS):
-                x = PRINTER_MARGIN + col * CELL_WIDTH
+                x = PRINTER_MARGIN + col * (CELL_WIDTH + COLUMN_GAP)
                 y = row * CELL_HEIGHT
                 positions.append((x, y))
         return positions
